@@ -1,0 +1,155 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class ExamCard extends StatelessWidget {
+  final int section;
+  final String title;
+  final int min;
+  final int max;
+  final double avg;
+  final String examId;
+  final String classId;
+  final String userId;
+  final VoidCallback onTap;
+
+  const ExamCard({
+    super.key,
+    required this.section,
+    required this.title,
+    required this.min,
+    required this.max,
+    required this.avg,
+    required this.examId,
+    required this.classId,
+    required this.userId,
+    required this.onTap,
+  });
+
+  void _showRenameDialog(BuildContext context) {
+    final controller = TextEditingController(text: title);
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Rename Exam"),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: "New Exam Name"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('classes')
+                    .doc(classId)
+                    .collection('exams')
+                    .doc(examId)
+                    .update({'title': newName});
+              }
+              Navigator.pop(context);
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Exam'),
+        content: const Text('Are you sure you want to delete this exam?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('classes')
+          .doc(classId)
+          .collection('exams')
+          .doc(examId)
+          .delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Exam deleted')),
+      );
+    }
+  }
+
+  void _showOptionsMenu(BuildContext context, Offset position) async {
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, 0, 0),
+      items: [
+        const PopupMenuItem(value: 'rename', child: Text('Rename')),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
+
+    if (selected == 'rename') {
+      _showRenameDialog(context);
+    } else if (selected == 'delete') {
+      _showDeleteDialog(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      onLongPressStart: (details) => _showOptionsMenu(context, details.globalPosition),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A237E),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 4),
+                    Text("Min: $min   Max: $max   Avg: $avg", style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text('$section', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

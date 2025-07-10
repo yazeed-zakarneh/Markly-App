@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "832428669903",
+    "project_id": "senior-markly",
+    "storage_bucket": "senior-markly.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:832428669903:android:74a8be64e612c6b6e770ba",
+        "android_client_info": {
+          "package_name": "com.senior.markly"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "832428669903-mrgg7nfptsn5hek3m54rak8c8monfsh6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.senior.markly",
+            "certificate_hash": "4a4d1fbc601b83ac364449c609d99721147d9486"
+          }
+        },
+        {
+          "client_id": "832428669903-inpd74usdvh23n1kbde0tphgmuk6b2h0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkzgeJ3O6F6ymxDhIKGKwBj8KVCsTtqkc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "832428669903-bfg0ovegq72d3nk4er6v7pm016rttl02.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
