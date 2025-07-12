@@ -1,19 +1,13 @@
-import 'dart:io';
-import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import '../widgets/custom_drawer.dart';
 
 class QuestionDetailScreen extends StatefulWidget {
   final String classId;
   final String examId;
   final String questionId;
-  final String questionName;
+  final String questionName; // This is the "Q#) ... ?" text
   final String className;
   final String examTitle;
 
@@ -32,15 +26,11 @@ class QuestionDetailScreen extends StatefulWidget {
 }
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
-  static const String _ocrApiUrl = 'https://omarabualrob-ocr-api.hf.space/ocr';
-
-  File? _image;
-  final TextEditingController _text1Controller = TextEditingController();
-  final TextEditingController _text2Controller = TextEditingController();
+  // We only need controllers and loading/saving state. No more OCR state.
+  final TextEditingController _answerController = TextEditingController();
+  final TextEditingController _gradeController = TextEditingController();
   bool _isSaving = false;
   bool _isLoading = true;
-  bool _isOcrProcessing = false;
-  String? _downloadUrl;
 
   @override
   void initState() {
@@ -50,11 +40,12 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   @override
   void dispose() {
-    _text1Controller.dispose();
-    _text2Controller.dispose();
+    _answerController.dispose();
+    _gradeController.dispose();
     super.dispose();
   }
 
+  /// Loads the saved answer and grade from Firestore.
   Future<void> _loadInitialData() async {
     try {
       final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -65,11 +56,9 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
       if (docSnapshot.exists && mounted) {
         final data = docSnapshot.data();
-        setState(() {
-          _text1Controller.text = data?['text1'] ?? '';
-          _text2Controller.text = data?['text2'] ?? '';
-          _downloadUrl = data?['imageUrl'];
-        });
+        // 'text1' holds the answer, 'text2' holds the grade/notes.
+        _answerController.text = data?['text1'] ?? '';
+        _gradeController.text = data?['text2'] ?? '';
       }
     } catch (e) {
       if (mounted) {
@@ -84,148 +73,20 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
-  /// Formats raw OCR text according to the strict rule: "Q<number>) ... ?"
-  /// This version adds spacing between the question and its answer.
-  String _formatOcrText(String rawText) {
-    // Regex to find the start of each question.
-    final RegExp questionStartDelimiter = RegExp(r'(?=[QqOo]\d+\))');
-
-    // This list will now hold complete question-and-answer blocks.
-    final List<String> formattedBlocks = [];
-
-    // Clean up the raw text.
-    final singleLineText = rawText.replaceAll('\n', ' ').trim();
-
-    // Split into potential blocks.
-    final potentialQuestionBlocks = singleLineText.split(questionStartDelimiter);
-
-    for (final block in potentialQuestionBlocks) {
-      final trimmedBlock = block.trim();
-      if (trimmedBlock.isEmpty) {
-        continue;
-      }
-
-      final questionMarkIndex = trimmedBlock.indexOf('?');
-
-      if (questionMarkIndex != -1) {
-        // Extract the question and answer parts.
-        final String question = trimmedBlock.substring(0, questionMarkIndex + 1).trim();
-        final String answer = trimmedBlock.substring(questionMarkIndex + 1).trim();
-
-        // Start building the block with the question.
-        String completeBlock = question;
-
-        // If an answer exists, add it with a double newline for a blank space.
-        if (answer.isNotEmpty) {
-          completeBlock += '\n\n' + answer;
-        }
-
-        // Add the entire formatted block as a single item to our list.
-        formattedBlocks.add(completeBlock);
-      }
-    }
-
-    // Join all the complete blocks, separating each one with a blank line.
-    return formattedBlocks.join('\n\n');
-  }
-
-
-  Future<String?> _performOcrOnImage(File imageFile) async {
-    setState(() => _isOcrProcessing = true);
-    final uri = Uri.parse(_ocrApiUrl);
-    try {
-      var request = http.MultipartRequest('POST', uri);
-      request.files.add(
-        await http.MultipartFile.fromPath(
-          'file',
-          imageFile.path,
-          contentType: MediaType('image', 'jpeg'),
-        ),
-      );
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseBody = jsonDecode(response.body);
-        if (responseBody.containsKey('text')) {
-          return responseBody['text'] as String;
-        } else {
-          throw Exception('OCR API success response format was unexpected.');
-        }
-      } else {
-        print('OCR API Error Status Code: ${response.statusCode}');
-        print('OCR API Error Response Body: ${response.body}');
-        throw Exception('Failed to load OCR data: ${response.statusCode}');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      }
-      return null;
-    } finally {
-      if (mounted) {
-        setState(() => _isOcrProcessing = false);
-      }
-    }
-  }
-
-  Future<void> _pickImage() async {
-    if (_isOcrProcessing) return;
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1800,
-      maxHeight: 1800,
-      imageQuality: 85,
-    );
-    if (picked != null) {
-      final imageFile = File(picked.path);
-      setState(() {
-        _image = imageFile;
-      });
-      final extractedText = await _performOcrOnImage(imageFile);
-      if (extractedText != null && mounted) {
-        final formattedText = _formatOcrText(extractedText);
-        setState(() {
-          _text1Controller.text = formattedText;
-        });
-      }
-    }
-  }
-
+  /// Saves any changes to the answer or grade.
   Future<void> _saveData() async {
-    if (_image == null &&
-        _text1Controller.text.isEmpty &&
-        _text2Controller.text.isEmpty &&
-        _downloadUrl == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nothing to save.')),
-        );
-      }
-      return;
-    }
     setState(() => _isSaving = true);
     final userId = FirebaseAuth.instance.currentUser!.uid;
     try {
-      String? imageUrl = _downloadUrl;
-      if (_image != null) {
-        final ref = FirebaseStorage.instance.ref().child(
-            'question_uploads/${widget.questionId}_${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await ref.putFile(_image!);
-        imageUrl = await ref.getDownloadURL();
-        if (mounted) {
-          setState(() => _downloadUrl = imageUrl);
-        }
-      }
       await FirebaseFirestore.instance
           .collection('users').doc(userId).collection('classes')
           .doc(widget.classId).collection('exams').doc(widget.examId)
-          .collection('questions').doc(widget.questionId).set({
-        'imageUrl': imageUrl,
-        'text1': _text1Controller.text,
-        'text2': _text2Controller.text,
+          .collection('questions').doc(widget.questionId).update({
+        'text1': _answerController.text,
+        'text2': _gradeController.text,
         'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
+
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Saved successfully')));
@@ -244,17 +105,11 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ImageProvider? imageProvider;
-    if (_image != null) {
-      imageProvider = FileImage(_image!);
-    } else if (_downloadUrl != null) {
-      imageProvider = NetworkImage(_downloadUrl!);
-    }
-
     return Scaffold(
       backgroundColor: Colors.white,
       drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
+        // ... your AppBar code is fine ...
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -282,7 +137,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '${widget.className} > ${widget.examTitle} > ${widget.questionName}',
+                '${widget.className} > ${widget.examTitle}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A237E),
@@ -299,45 +154,33 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           : SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: _isOcrProcessing ? null : _pickImage,
-              child: Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(16),
-                  image: imageProvider != null
-                      ? DecorationImage(
-                    image: imageProvider,
-                    fit: BoxFit.cover,
-                  )
-                      : null,
-                ),
-                child: _isOcrProcessing
-                    ? const Center(
-                    child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E))))
-                    : (imageProvider == null
-                    ? const Center(
-                    child: Icon(Icons.add_a_photo,
-                        size: 50, color: Colors.grey))
-                    : null),
+            // Display the question text clearly.
+            Text(
+              widget.questionName,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
+
+            // Text field for the student's answer.
             TextField(
-              controller: _text1Controller,
+              controller: _answerController,
               decoration: const InputDecoration(
-                labelText: 'Extracted Text (OCR Result)',
+                labelText: "Student's Answer",
                 border: OutlineInputBorder(),
               ),
-              maxLines: null,
+              maxLines: null, // Allows multiline
             ),
             const SizedBox(height: 16),
+
+            // Text field for your grade or notes.
             TextField(
-              controller: _text2Controller,
+              controller: _gradeController,
               decoration: const InputDecoration(
                 labelText: 'Grade / Notes',
                 border: OutlineInputBorder(),
@@ -345,22 +188,28 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
               maxLines: null,
             ),
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A237E),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+
+            // Center the save button
+            Center(
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveData,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A237E),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                    : const Text('Save',
+                    style:
+                    TextStyle(fontSize: 16, color: Colors.white)),
               ),
-              child: _isSaving
-                  ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-                  : const Text('Save', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
           ],
         ),
