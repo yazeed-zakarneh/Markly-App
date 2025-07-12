@@ -32,6 +32,8 @@ class QuestionDetailScreen extends StatefulWidget {
 }
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
+  static const String _ocrApiUrl = 'https://omarabualrob-ocr-api.hf.space/ocr';
+
   File? _image;
   final TextEditingController _text1Controller = TextEditingController();
   final TextEditingController _text2Controller = TextEditingController();
@@ -54,19 +56,12 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    // This function is correct, no changes needed
     try {
       final userId = FirebaseAuth.instance.currentUser!.uid;
       final docSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('classes')
-          .doc(widget.classId)
-          .collection('exams')
-          .doc(widget.examId)
-          .collection('questions')
-          .doc(widget.questionId)
-          .get();
+          .collection('users').doc(userId).collection('classes')
+          .doc(widget.classId).collection('exams').doc(widget.examId)
+          .collection('questions').doc(widget.questionId).get();
 
       if (docSnapshot.exists && mounted) {
         final data = docSnapshot.data();
@@ -89,33 +84,55 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
-  /// Formats raw OCR text by adding newlines before questions.
+  /// Formats raw OCR text according to the strict rule: "Q<number>) ... ?"
+  /// This version adds spacing between the question and its answer.
   String _formatOcrText(String rawText) {
-    final RegExp questionPattern = RegExp(r'^\s*(\d+|[a-zA-Z])[\.\)]');
-    final lines = rawText.split('\n');
-    final List<String> formattedLines = [];
+    // Regex to find the start of each question.
+    final RegExp questionStartDelimiter = RegExp(r'(?=[QqOo]\d+\))');
 
-    for (final line in lines) {
-      final trimmedLine = line.trim();
-      if (trimmedLine.isEmpty) {
+    // This list will now hold complete question-and-answer blocks.
+    final List<String> formattedBlocks = [];
+
+    // Clean up the raw text.
+    final singleLineText = rawText.replaceAll('\n', ' ').trim();
+
+    // Split into potential blocks.
+    final potentialQuestionBlocks = singleLineText.split(questionStartDelimiter);
+
+    for (final block in potentialQuestionBlocks) {
+      final trimmedBlock = block.trim();
+      if (trimmedBlock.isEmpty) {
         continue;
       }
-      if (questionPattern.hasMatch(trimmedLine)) {
-        if (formattedLines.isNotEmpty) {
-          formattedLines.add('');
+
+      final questionMarkIndex = trimmedBlock.indexOf('?');
+
+      if (questionMarkIndex != -1) {
+        // Extract the question and answer parts.
+        final String question = trimmedBlock.substring(0, questionMarkIndex + 1).trim();
+        final String answer = trimmedBlock.substring(questionMarkIndex + 1).trim();
+
+        // Start building the block with the question.
+        String completeBlock = question;
+
+        // If an answer exists, add it with a double newline for a blank space.
+        if (answer.isNotEmpty) {
+          completeBlock += '\n\n' + answer;
         }
+
+        // Add the entire formatted block as a single item to our list.
+        formattedBlocks.add(completeBlock);
       }
-      formattedLines.add(trimmedLine);
     }
-    return formattedLines.join('\n');
+
+    // Join all the complete blocks, separating each one with a blank line.
+    return formattedBlocks.join('\n\n');
   }
 
+
   Future<String?> _performOcrOnImage(File imageFile) async {
-    // This function is now correct and working
-    setState(() {
-      _isOcrProcessing = true;
-    });
-    final uri = Uri.parse('https://omarabualrob-ocr-api.hf.space/ocr');
+    setState(() => _isOcrProcessing = true);
+    final uri = Uri.parse(_ocrApiUrl);
     try {
       var request = http.MultipartRequest('POST', uri);
       request.files.add(
@@ -146,9 +163,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       return null;
     } finally {
       if (mounted) {
-        setState(() {
-          _isOcrProcessing = false;
-        });
+        setState(() => _isOcrProcessing = false);
       }
     }
   }
@@ -178,7 +193,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   }
 
   Future<void> _saveData() async {
-    // This function is correct, no changes needed
     if (_image == null &&
         _text1Controller.text.isEmpty &&
         _text2Controller.text.isEmpty &&
@@ -204,15 +218,9 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         }
       }
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('classes')
-          .doc(widget.classId)
-          .collection('exams')
-          .doc(widget.examId)
-          .collection('questions')
-          .doc(widget.questionId)
-          .set({
+          .collection('users').doc(userId).collection('classes')
+          .doc(widget.classId).collection('exams').doc(widget.examId)
+          .collection('questions').doc(widget.questionId).set({
         'imageUrl': imageUrl,
         'text1': _text1Controller.text,
         'text2': _text2Controller.text,
@@ -236,7 +244,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // This build method is correct, no changes needed
     ImageProvider? imageProvider;
     if (_image != null) {
       imageProvider = FileImage(_image!);
