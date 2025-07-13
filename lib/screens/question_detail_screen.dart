@@ -125,7 +125,8 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           contentType: MediaType('image', 'jpeg'),
         ),
       );
-      var streamedResponse = await request.send();
+      var streamedResponse =
+          await request.send().timeout(const Duration(minutes: 2));
       var response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
@@ -141,7 +142,8 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
       }
       return null;
     } finally {
@@ -288,76 +290,80 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A237E)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1A237E)))
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _isOcrProcessing ? null : _pickImage,
-              child: Container(
-                height: 220,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(16),
-                  image: imageProvider != null
-                      ? DecorationImage(
-                    image: imageProvider,
-                    fit: BoxFit.cover,
-                  )
-                      : null,
-                ),
-                child: _isOcrProcessing
-                    ? const Center(
-                    child: CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1A237E))))
-                    : (imageProvider == null
-                    ? const Center(
-                    child: Icon(Icons.add_a_photo,
-                        size: 50, color: Colors.grey))
-                    : null),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  GestureDetector(
+                    onTap: _isOcrProcessing ? null : _pickImage,
+                    child: Container(
+                      height: 220,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(16),
+                        image: imageProvider != null
+                            ? DecorationImage(
+                                image: imageProvider,
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _isOcrProcessing
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFF1A237E))))
+                          : (imageProvider == null
+                              ? const Center(
+                                  child: Icon(Icons.add_a_photo,
+                                      size: 50, color: Colors.grey))
+                              : null),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _text1Controller,
+                    decoration: const InputDecoration(
+                      labelText: 'Extracted Text (OCR Result)',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _text2Controller,
+                    decoration: const InputDecoration(
+                      labelText: 'Grade / Notes',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: null,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _saveData,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1A237E),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text('Save',
+                            style:
+                                TextStyle(fontSize: 16, color: Colors.white)),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _text1Controller,
-              decoration: const InputDecoration(
-                labelText: 'Extracted Text (OCR Result)',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: null,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _text2Controller,
-              decoration: const InputDecoration(
-                labelText: 'Grade / Notes',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: null,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _isSaving ? null : _saveData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A237E),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: _isSaving
-                  ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-                  : const Text('Save', style: TextStyle(fontSize: 16, color: Colors.white)),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
