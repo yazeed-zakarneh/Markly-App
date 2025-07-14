@@ -24,6 +24,13 @@ class _AnswerSheet {
       ocrText: map['ocrText'] as String,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'imageUrl': imageUrl,
+      'ocrText': ocrText,
+    };
+  }
 }
 
 class _OcrImageState {
@@ -31,6 +38,7 @@ class _OcrImageState {
   bool isOcrProcessing = true;
   String ocrResult = '';
   final TextEditingController controller = TextEditingController();
+  bool isActive = false;
 
   _OcrImageState({required this.imageFile});
 }
@@ -81,19 +89,28 @@ class _StudentPageState extends State<StudentScreen> {
       if (docSnapshot.exists) {
         final data = docSnapshot.data();
         if (data != null && data.containsKey('answerSheets')) {
-          // Robustly parse the data from Firestore
-          final rawSheets = data['answerSheets'] as List<dynamic>;
-          final loadedSheets = rawSheets.map((rawData) {
-            final mapData = Map<String, dynamic>.from(rawData as Map);
-            return _AnswerSheet.fromMap(mapData);
-          }).toList();
+          final dynamic rawSheetsData = data['answerSheets'];
+          if (rawSheetsData is List) {
+            final loadedSheets = rawSheetsData
+                .whereType<Map>()
+                .map((mapData) {
+                  try {
+                    return _AnswerSheet.fromMap(
+                        Map<String, dynamic>.from(mapData));
+                  } catch (e) {
+                    print('Error parsing answer sheet: $e');
+                    return null;
+                  }
+                })
+                .whereType<_AnswerSheet>()
+                .toList();
 
-          if (mounted) {
-            setState(() {
-              _savedAnswerSheets
-                  .clear(); // Clear before adding to prevent duplicates
-              _savedAnswerSheets.addAll(loadedSheets);
-            });
+            if (mounted) {
+              setState(() {
+                _savedAnswerSheets.clear();
+                _savedAnswerSheets.addAll(loadedSheets);
+              });
+            }
           }
         }
       }
@@ -191,18 +208,91 @@ class _StudentPageState extends State<StudentScreen> {
 
     setState(() {
       _imageStates.addAll(newImageStates);
+      _isProcessingQueue = true;
     });
 
-    // Process sequentially to avoid overwhelming the API
-    for (final imageState in newImageStates) {
-      await _runOcrForImage(imageState);
+    try {
+      for (final imageState in newImageStates) {
+        if (!_isProcessingQueue) break;
+        setState(() {
+          imageState.isActive = true;
+        });
+        await _runOcrForImage(imageState);
+        imageState.isActive = false;
+      }
+    } finally {
+      setState(() {
+        for (var state in _imageStates) {
+          state.isActive = false;
+        }
+        _isProcessingQueue = false;
+      });
+    }
+  }
+
+  Future<void> _deleteAnswerSheet(_AnswerSheet sheetToDelete) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Answer Sheet'),
+        content: const Text(
+            'Are you sure you want to permanently delete this answer sheet?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final int sheetIndex = _savedAnswerSheets.indexOf(sheetToDelete);
+    // Optimistically update UI
+    setState(() {
+      _savedAnswerSheets.remove(sheetToDelete);
+    });
+
+    try {
+      final studentDocRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('classes')
+          .doc(widget.classId)
+          .collection('exams')
+          .doc(widget.examId)
+          .collection('students')
+          .doc(widget.student.id);
+
+      await studentDocRef.update({
+        'answerSheets': FieldValue.arrayRemove([sheetToDelete.toMap()]),
+      });
+    } catch (e) {
+      // Revert if the update fails
+      setState(() {
+        _savedAnswerSheets.insert(sheetIndex, sheetToDelete);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete sheet: $e')),
+        );
+      }
     }
   }
 
   Future<void> _saveAllData() async {
-    if (_isSaving || _imageStates.isEmpty) {
+    if (_isSaving ||
+        _imageStates.any((s) => s.isOcrProcessing) ||
+        _imageStates.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No new answer sheets to save.')),
+        const SnackBar(
+            content: Text(
+                'No new answer sheets to save or processing is not complete.')),
       );
       return;
     }
@@ -236,7 +326,6 @@ class _StudentPageState extends State<StudentScreen> {
             .collection('students')
             .doc(widget.student.id);
 
-        // Use .update() for modifying an existing document.
         await studentDocRef.update({
           'answerSheets': FieldValue.arrayUnion(newAnswerSheets),
         });
@@ -336,16 +425,44 @@ class _StudentPageState extends State<StudentScreen> {
                   ),
                   const SizedBox(height: 24),
                   Center(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1A237E),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                      ),
-                      onPressed: _isSaving ? null : _pickImagesAndPerformOcr,
-                      icon: const Icon(Icons.add_a_photo_outlined),
-                      label: const Text('Add & Scan Answer Sheets'),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1A237E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                            ),
+                            onPressed: _isSaving || _isProcessingQueue
+                                ? null
+                                : _pickImagesAndPerformOcr,
+                            icon: const Icon(Icons.add_a_photo_outlined),
+                            label: const Text('Add & Scan Answer Sheets'),
+                          ),
+                        ),
+                        if (_isProcessingQueue) ...[
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _isProcessingQueue = false;
+                                });
+                              },
+                              icon:
+                                  const Icon(Icons.cancel, color: Colors.white),
+                              label: const Text('Cancel'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          )
+                        ]
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -356,7 +473,6 @@ class _StudentPageState extends State<StudentScreen> {
                       itemCount:
                           _savedAnswerSheets.length + _imageStates.length,
                       itemBuilder: (context, index) {
-                        // Display previously saved images
                         if (index < _savedAnswerSheets.length) {
                           final sheet = _savedAnswerSheets[index];
                           return Card(
@@ -366,9 +482,20 @@ class _StudentPageState extends State<StudentScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Saved Answer Sheet ${index + 1}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
+                                  Row(
+                                    children: [
+                                      Text('Saved Answer Sheet ${index + 1}',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      const Spacer(),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.red),
+                                        onPressed: () =>
+                                            _deleteAnswerSheet(sheet),
+                                      )
+                                    ],
+                                  ),
                                   const SizedBox(height: 8),
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
@@ -416,11 +543,19 @@ class _StudentPageState extends State<StudentScreen> {
                           );
                         }
 
-                        // Display newly picked images with OCR results
                         final imageStateIndex =
                             index - _savedAnswerSheets.length;
                         final imageState = _imageStates[imageStateIndex];
                         return Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                            side: BorderSide(
+                              color: imageState.isActive
+                                  ? Colors.blueAccent
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
                           margin: const EdgeInsets.only(bottom: 16),
                           child: Padding(
                             padding: const EdgeInsets.all(8.0),
@@ -439,8 +574,34 @@ class _StudentPageState extends State<StudentScreen> {
                                       child: Image.file(imageState.imageFile,
                                           fit: BoxFit.cover),
                                     ),
-                                    if (imageState.isOcrProcessing)
-                                      const CircularProgressIndicator(),
+                                    // State 1: Actively Processing
+                                    if (imageState.isActive)
+                                      const CircularProgressIndicator(
+                                          color: Colors.white),
+
+                                    // State 2: Waiting in the queue
+                                    if (_isProcessingQueue &&
+                                        !imageState.isActive)
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          borderRadius:
+                                              BorderRadius.circular(8.0),
+                                        ),
+                                        child: const Center(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.hourglass_top,
+                                                  color: Colors.white),
+                                              SizedBox(height: 8),
+                                              Text('In Queue',
+                                                  style: TextStyle(
+                                                      color: Colors.white)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                                 const SizedBox(height: 12),
