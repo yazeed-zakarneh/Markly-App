@@ -67,18 +67,31 @@ class _QuestionsTabState extends State<QuestionsTab> {
                   statusMessage = 'Found ${questionsToCreate.length} questions. Saving...';
                 });
 
-                final batch = FirebaseFirestore.instance.batch();
                 final questionsCollection = FirebaseFirestore.instance
                     .collection('users').doc(userId).collection('classes')
                     .doc(widget.classId).collection('exams').doc(widget.examId)
                     .collection('questions');
 
-                for (final pq in questionsToCreate) {
+                // Fetch the current number of questions to determine the starting index.
+                final existingDocsSnapshot = await questionsCollection.get();
+                final existingQuestionCount = existingDocsSnapshot.size;
+
+                final batch = FirebaseFirestore.instance.batch();
+
+                for (int i = 0; i < questionsToCreate.length; i++) {
+                  final pq = questionsToCreate[i];
+
+                  // Calculate the new number based on how many questions already exist.
+                  final newQuestionNumber = existingQuestionCount + i + 1;
+                  final simpleName = 'Q$newQuestionNumber';
+
                   final newQuestionRef = questionsCollection.doc();
                   batch.set(newQuestionRef, {
-                    'name': pq.question, // The question text is the name
-                    'text1': pq.answer,   // The answer text is saved in text1
-                    'text2': '',          // Notes/Grade field is initially empty
+                    'name': simpleName,
+                    'fullQuestion': pq.question,
+                    'text1': pq.answer,
+                    'text2': '',
+                    'questionNumber': newQuestionNumber,
                     'createdAt': FieldValue.serverTimestamp(),
                   });
                 }
@@ -131,10 +144,11 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
   @override
   Widget build(BuildContext context) {
+    // This query correctly sorts all questions, new and old, by their number.
     final questionsRef = FirebaseFirestore.instance
         .collection('users').doc(userId).collection('classes')
         .doc(widget.classId).collection('exams').doc(widget.examId)
-        .collection('questions').orderBy('createdAt', descending: false);
+        .collection('questions').orderBy('questionNumber', descending: false);
 
     return Stack(
       children: [
@@ -170,9 +184,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
                     leading: const Icon(Icons.help_outline, color: Color(0xFF1A237E)),
                     title: Text(
                       questionText,
-                      style: const TextStyle(fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 2,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     tileColor: const Color(0xFFF5F5F5),
                     onTap: () {

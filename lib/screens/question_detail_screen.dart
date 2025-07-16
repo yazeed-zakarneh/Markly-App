@@ -7,7 +7,7 @@ class QuestionDetailScreen extends StatefulWidget {
   final String classId;
   final String examId;
   final String questionId;
-  final String questionName; // This is the "Q#) ... ?" text
+  final String questionName; // This is now the simple name like "Q1"
   final String className;
   final String examTitle;
 
@@ -26,7 +26,8 @@ class QuestionDetailScreen extends StatefulWidget {
 }
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
-  // We only need controllers and loading/saving state. No more OCR state.
+  // New controllers for clarity
+  final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
   final TextEditingController _gradeController = TextEditingController();
   bool _isSaving = false;
@@ -40,12 +41,13 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
   @override
   void dispose() {
+    _questionController.dispose();
     _answerController.dispose();
     _gradeController.dispose();
     super.dispose();
   }
 
-  /// Loads the saved answer and grade from Firestore.
+  /// Loads the full question, answer, and grade from Firestore.
   Future<void> _loadInitialData() async {
     try {
       final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -56,9 +58,10 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
       if (docSnapshot.exists && mounted) {
         final data = docSnapshot.data();
-        // 'text1' holds the answer, 'text2' holds the grade/notes.
-        _answerController.text = data?['text1'] ?? '';
-        _gradeController.text = data?['text2'] ?? '';
+        // Load data from the correct fields
+        _questionController.text = data?['fullQuestion'] ?? 'Question not found.';
+        _answerController.text = data?['text1'] ?? ''; // text1 is the answer
+        _gradeController.text = data?['text2'] ?? ''; // text2 is the grade
       }
     } catch (e) {
       if (mounted) {
@@ -73,7 +76,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
-  /// Saves any changes to the answer or grade.
+  /// Saves only the editable fields: answer and grade.
   Future<void> _saveData() async {
     setState(() => _isSaving = true);
     final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -82,6 +85,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           .collection('users').doc(userId).collection('classes')
           .doc(widget.classId).collection('exams').doc(widget.examId)
           .collection('questions').doc(widget.questionId).update({
+        // Only save the fields that can be changed on this screen
         'text1': _answerController.text,
         'text2': _gradeController.text,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -109,7 +113,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
       backgroundColor: Colors.white,
       drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
-        // ... your AppBar code is fine ...
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -130,6 +133,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             ),
           ],
         ),
+        // The AppBar now shows the simple question name like "Q1"
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Padding(
@@ -137,7 +141,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '${widget.className} > ${widget.examTitle}',
+                '${widget.className} > ${widget.examTitle} > ${widget.questionName}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A237E),
@@ -156,29 +160,35 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Display the question text clearly.
-            Text(
-              widget.questionName,
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Text field for the student's answer.
+            // --- NEW UI STRUCTURE ---
+            // Read-only text field for the full question.
             TextField(
-              controller: _answerController,
+              controller: _questionController,
+              readOnly: true,
               decoration: const InputDecoration(
-                labelText: "Student's Answer",
+                labelText: "Question",
                 border: OutlineInputBorder(),
+                fillColor: Color(0xFFF5F5F5),
+                filled: true,
               ),
-              maxLines: null, // Allows multiline
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              maxLines: null,
             ),
             const SizedBox(height: 16),
 
-            // Text field for your grade or notes.
+            // Editable text field for the student's answer.
+            TextField(
+              readOnly: true,
+              controller: _answerController,
+              decoration: const InputDecoration(
+                labelText: "Key Answer",
+                border: OutlineInputBorder(),
+              ),
+              maxLines: null,
+            ),
+            const SizedBox(height: 16),
+
+            // Editable text field for your grade or notes.
             TextField(
               controller: _gradeController,
               decoration: const InputDecoration(
@@ -189,7 +199,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Center the save button
             Center(
               child: ElevatedButton(
                 onPressed: _isSaving ? null : _saveData,
