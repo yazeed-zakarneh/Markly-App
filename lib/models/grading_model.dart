@@ -8,7 +8,7 @@ class GradingService {
     required String studentAnswer,
   }) async {
     // Your correct API URL
-    final uri = Uri.parse('http://213.192.2.92:40053/grade');
+    final uri = Uri.parse('http://213.192.2.92:40161/grade');
 
     try {
       final response = await http.post(
