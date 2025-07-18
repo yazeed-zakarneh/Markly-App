@@ -11,13 +11,9 @@ class ParsedQuestion {
 }
 
 class OcrService {
-  // Existing OCR API URL
   static const String _ocrApiUrl = 'https://omarabualrob-ocr-api.hf.space/ocr';
-
-  // NEW: URL for the new enhancement API
   static const String _enhancementApiUrl = 'https://omarabualrob-enhancing-and-dividing-questions.hf.space/enhance-and-format';
 
-  // NEW METHOD: Calls the enhancement API
   Future<String> enhanceOcrText(String rawText) async {
     final uri = Uri.parse(_enhancementApiUrl);
     final headers = {'Content-Type': 'application/json', 'accept': 'application/json'};
@@ -44,41 +40,40 @@ class OcrService {
       throw Exception("Enhancement request timed out.");
     } catch (e) {
       print("Enhancement Service Error: $e");
-      rethrow; // Pass the error up to the UI
+      rethrow;
     }
   }
 
-  // UPDATED: This now parses the clean output from the enhancement API
+  // --- THIS METHOD IS NOW CORRECTED ---
   List<ParsedQuestion> extractQuestionsFromText(String processedText) {
-    // The new delimiter is the literal string "Question: "
     final RegExp questionDelimiter = RegExp(r'(?=Question:)');
     final List<ParsedQuestion> parsedQuestions = [];
-
-    // Split the entire text block by the "Question:" delimiter
     final questionBlocks = processedText.split(questionDelimiter);
 
     for (final block in questionBlocks) {
       final trimmedBlock = block.trim();
-      if (trimmedBlock.isEmpty) continue; // Skip any empty splits
+      if (trimmedBlock.isEmpty) continue;
 
-      // The answer is delimited by the literal string "\nAnswer: "
       final answerDelimiter = '\nAnswer: ';
       final answerIndex = trimmedBlock.indexOf(answerDelimiter);
 
       if (answerIndex != -1) {
-        // The question is everything from the start up to the answer delimiter
-        final String question = trimmedBlock.substring(0, answerIndex).trim();
+        // Step 1: Get the full question text, including the prefix
+        final String fullQuestionText = trimmedBlock.substring(0, answerIndex).trim();
 
-        // The answer is everything after the delimiter
+        // Step 2: NEW - Remove the "Question: " prefix from the string
+        final String cleanedQuestion = fullQuestionText.replaceFirst('Question: ', '').trim();
+
+        // Step 3: Get the answer text (no change here)
         final String answer = trimmedBlock.substring(answerIndex + answerDelimiter.length).trim();
 
-        parsedQuestions.add(ParsedQuestion(question: question, answer: answer));
+        // Step 4: Add the CLEANED question to our object
+        parsedQuestions.add(ParsedQuestion(question: cleanedQuestion, answer: answer));
       }
     }
     return parsedQuestions;
   }
 
-  // UNCHANGED: This method remains the same
   Future<String?> performOcr(File imageFile) async {
     final uri = Uri.parse(_ocrApiUrl);
     try {
