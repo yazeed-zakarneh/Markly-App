@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import '../screens/question_detail_screen.dart';
-import '../models/ocr_model.dart'; // Make sure this path is correct
+import '../models/ocr_model.dart';
 
 class QuestionsTab extends StatefulWidget {
   final String classId;
@@ -38,7 +38,6 @@ class _QuestionsTabState extends State<QuestionsTab> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-
             Future<void> processImage() async {
               final picker = ImagePicker();
               final picked = await picker.pickImage(
@@ -53,14 +52,24 @@ class _QuestionsTabState extends State<QuestionsTab> {
               });
 
               try {
+                // Step 1: Perform OCR
                 final rawText = await _ocrService.performOcr(File(picked.path));
                 if (rawText == null || rawText.isEmpty) {
                   throw Exception("OCR could not extract any text.");
                 }
 
-                final questionsToCreate = _ocrService.extractQuestionsFromText(rawText);
+                setDialogState(() {
+                  statusMessage = 'Enhancing extracted text...'; // New status
+                });
+
+                // Step 2: Call the new enhancement service
+                final enhancedText = await _ocrService.enhanceOcrText(rawText);
+
+                // Step 3: Parse the *enhanced* text
+                final questionsToCreate = _ocrService.extractQuestionsFromText(enhancedText);
+
                 if (questionsToCreate.isEmpty) {
-                  throw Exception("No valid questions found in the format 'Q#) ... ?'");
+                  throw Exception("No valid questions found in the format 'Question: ... Answer: ...'");
                 }
 
                 setDialogState(() {
@@ -72,7 +81,6 @@ class _QuestionsTabState extends State<QuestionsTab> {
                     .doc(widget.classId).collection('exams').doc(widget.examId)
                     .collection('questions');
 
-                // Fetch the current number of questions to determine the starting index.
                 final existingDocsSnapshot = await questionsCollection.get();
                 final existingQuestionCount = existingDocsSnapshot.size;
 
@@ -81,7 +89,6 @@ class _QuestionsTabState extends State<QuestionsTab> {
                 for (int i = 0; i < questionsToCreate.length; i++) {
                   final pq = questionsToCreate[i];
 
-                  // Calculate the new number based on how many questions already exist.
                   final newQuestionNumber = existingQuestionCount + i + 1;
                   final simpleName = 'Q$newQuestionNumber';
 
@@ -144,7 +151,6 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
   @override
   Widget build(BuildContext context) {
-    // This query correctly sorts all questions, new and old, by their number.
     final questionsRef = FirebaseFirestore.instance
         .collection('users').doc(userId).collection('classes')
         .doc(widget.classId).collection('exams').doc(widget.examId)

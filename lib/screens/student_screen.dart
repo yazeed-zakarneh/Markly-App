@@ -1,14 +1,12 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// We do not need firebase_storage in this version as per your request
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:markly/models/student_model.dart';
 import 'package:markly/widgets/custom_drawer.dart';
 import '../models/ocr_model.dart';
 
-// The QaDisplayCard widget remains the same and is correct.
 class _QaDisplayCard extends StatelessWidget {
   final String question;
   final String answer;
@@ -85,7 +83,6 @@ class _StudentPageState extends State<StudentScreen> {
         .collection('students').doc(widget.student.id).collection('answers');
   }
 
-  /// UPDATED: This function now uses the Regex-based parser directly.
   Future<void> _addAndProcessSheet() async {
     if (_isProcessing) return;
     final picker = ImagePicker();
@@ -100,16 +97,20 @@ class _StudentPageState extends State<StudentScreen> {
       final rawText = await _ocrService.performOcr(imageFile);
       if (rawText == null || rawText.isEmpty) throw Exception("OCR failed to extract text.");
 
-      // Step 2: Parse the raw text directly using the Regex-based method.
-      // NO second API call is made.
-      final parsedQuestions = _ocrService.extractQuestionsFromText(rawText);
-      if (parsedQuestions.isEmpty) throw Exception("No questions could be parsed from the sheet using the format Q#)...?");
+      // Step 2: Call the new enhancement service
+      print("Enhancing student sheet text...");
+      final enhancedText = await _ocrService.enhanceOcrText(rawText);
 
-      // Step 3: Get the current number of answers to continue numbering
+      // Step 3: Parse the *enhanced* text using the Regex-based method.
+      final parsedQuestions = _ocrService.extractQuestionsFromText(enhancedText);
+
+      if (parsedQuestions.isEmpty) throw Exception("No questions could be parsed from the sheet.");
+
+      // Step 4: Get the current number of answers to continue numbering
       final existingAnswersSnapshot = await _answersCollection.get();
       final existingAnswersCount = existingAnswersSnapshot.size;
 
-      // Step 4: Save each parsed answer as a new document in Firestore
+      // Step 5: Save each parsed answer as a new document in Firestore
       final batch = FirebaseFirestore.instance.batch();
       for (int i = 0; i < parsedQuestions.length; i++) {
         final pq = parsedQuestions[i];
@@ -121,7 +122,7 @@ class _StudentPageState extends State<StudentScreen> {
           'questionNumber': newAnswerNumber,
           'questionText': pq.question,
           'studentAnswer': pq.answer,
-          'mark': null, // No image URL is saved
+          'mark': null,
         });
       }
 
