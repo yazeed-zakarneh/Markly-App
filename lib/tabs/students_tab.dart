@@ -28,6 +28,8 @@ class _StudentsTabState extends State<StudentsTab> {
 
   // In tabs/students_tab.dart
 
+  // In tabs/students_tab.dart
+
   Future<void> _gradeAllStudents() async {
     setState(() => _isGrading = true);
 
@@ -40,77 +42,67 @@ class _StudentsTabState extends State<StudentsTab> {
     );
 
     try {
-      // 1. Fetch all data, ensuring it's ordered correctly
+      // 1. Fetch key questions (ordered by number) - This is correct.
       final questionsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber');
-      final studentsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students');
-      final results = await Future.wait([questionsRef.get(), studentsRef.get()]);
-      final questionDocs = results[0].docs;
-      final studentDocs = results[1].docs;
+      final questionDocs = (await questionsRef.get()).docs;
 
-      if (questionDocs.isEmpty) throw Exception("No questions with key answers found.");
+      // 2. Fetch all student documents - This is correct.
+      final studentsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students');
+      final studentDocs = (await studentsRef.get()).docs;
+
+      if (questionDocs.isEmpty) throw Exception("No key questions found to grade against.");
       if (studentDocs.isEmpty) throw Exception("No students to grade.");
 
-      // --- NEW LOGIC: Prepare an ordered list of key questions and answers ---
-      final List<ParsedQuestion> keyQuestionsAndAnswers = questionDocs.map((doc) {
+      // 3. Prepare an ordered list of key questions/answers - This is correct.
+      final keyQuestionsAndAnswers = questionDocs.map((doc) {
         final data = doc.data();
         return ParsedQuestion(question: data['fullQuestion'], answer: data['text1']);
       }).toList();
-      // --- END OF NEW LOGIC ---
 
-      // 3. Process each student
       final batch = FirebaseFirestore.instance.batch();
+
+      // --- THIS IS THE CORRECTED LOGIC ---
+      // 4. Loop through each student document
       for (final studentDoc in studentDocs) {
         double totalMark = 0.0;
-        final Map<String, double> gradedMarks = {};
 
-        final studentData = studentDoc.data();
-        final answerSheets = (studentData['answerSheets'] as List? ?? []).map((s) => AnswerSheet.fromMap(Map<String, dynamic>.from(s))).toList();
+        // Fetch this student's answers from the 'answers' SUB-COLLECTION, ordered by number
+        final studentAnswersSnapshot = await studentDoc.reference.collection('answers').orderBy('questionNumber').get();
+        final studentAnswerDocs = studentAnswersSnapshot.docs;
 
-        // Get the student's answers in a correctly ordered list
-        final studentAnswers = answerSheets
-            .expand((sheet) => _ocrService.extractQuestionsFromText(sheet.ocrText))
-            .toList();
+        final int loopCount = keyQuestionsAndAnswers.length < studentAnswerDocs.length ? keyQuestionsAndAnswers.length : studentAnswerDocs.length;
 
-        // --- NEW LOGIC: Loop by index, not by text matching ---
-        // We find the smaller of the two list lengths to avoid errors
-        final int loopCount = keyQuestionsAndAnswers.length < studentAnswers.length
-            ? keyQuestionsAndAnswers.length
-            : studentAnswers.length;
-
-        print("👤 Grading Student: ${studentData['name']}. Found ${keyQuestionsAndAnswers.length} key answers and ${studentAnswers.length} student answers. Will grade $loopCount pairs.");
-
+        // 5. Grade each answer by matching index
         for (int i = 0; i < loopCount; i++) {
           final keyQA = keyQuestionsAndAnswers[i];
-          final studentQA = studentAnswers[i];
+          final studentAnswerDoc = studentAnswerDocs[i];
+          final studentAnswerData = studentAnswerDoc.data();
 
-          // Use a try-catch for each API call for resilience
           try {
             final mark = await _gradingService.gradeAnswer(
-              question: keyQA.question,       // Key Question
-              keyAnswer: keyQA.answer,         // Key Answer
-              studentAnswer: studentQA.answer, // Student's Answer
+              question: keyQA.question,
+              keyAnswer: keyQA.answer,
+              studentAnswer: studentAnswerData['studentAnswer'],
             );
             totalMark += mark;
-            // We still use the full question text as the key for the marks map
-            gradedMarks[keyQA.question] = mark;
-            print("  ✅ Graded Q${i+1}: Mark = $mark");
+
+            // Update the INDIVIDUAL ANSWER DOCUMENT with the mark
+            batch.update(studentAnswerDoc.reference, {'mark': mark});
+
           } catch (e) {
-            print("  ❌ Failed to grade Q${i+1}. Error: $e");
+            print("❌ Failed to grade Q${i+1} for student ${studentDoc.data()['name']}. Error: $e");
           }
         }
-        // --- END OF NEW LOGIC ---
 
-        batch.update(studentDoc.reference, {
-          'totalMark': totalMark,
-          'gradedMarks': gradedMarks,
-        });
+        // Update the student's MAIN document with their total score
+        batch.update(studentDoc.reference, {'totalMark': totalMark});
       }
+      // --- END OF CORRECTED LOGIC ---
 
-      // 4. Commit all updates at once
+      // 6. Commit all updates
       await batch.commit();
-
-      Navigator.pop(context); // Close loading dialog
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading complete! Check logs for any errors.')));
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading complete!')));
 
     } catch (e) {
       Navigator.pop(context);
