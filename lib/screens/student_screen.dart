@@ -145,7 +145,7 @@ class _StudentPageState extends State<StudentScreen> {
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
                 onPressed: _isProcessing ? null : _addAndProcessSheet,
-                icon: _isProcessing ? Container(width: 20, height: 20, margin: const EdgeInsets.only(right: 8), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.add_a_photo_outlined),
+                icon: _isProcessing ? Container(width: 20, height: 20, margin: const EdgeInsets.only(right: 8), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.add_a_photo_outlined, color: Colors.white,),
                 label: Text(_isProcessing ? 'Processing...' : 'Add Answer Sheet'),
               ),
             ),

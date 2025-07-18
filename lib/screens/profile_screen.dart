@@ -62,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const Text(
                     "Update Profile",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
                   ),
                   const SizedBox(height: 16),
                   GestureDetector(
@@ -100,11 +100,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                            side: BorderSide(color: Color(0xFF1A237E)),
+                          ),
                           onPressed: () => Navigator.pop(context),
-                          child: const Text("Cancel"),
+                          child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF1A237E),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                          ),
                           onPressed: () async {
                             setDialogState(() => isLoading = true);
                             try {
@@ -159,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               setDialogState(() => isLoading = false);
                             }
                           },
-                          child: const Text("Save"),
+                          child: const Text("Save",style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),

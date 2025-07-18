@@ -76,7 +76,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("Add Student"),
+      title: const Text("Add Student", style: TextStyle(color: Color(0xFF1A237E)),),
       content: Form(
         key: _formKey,
         child: Column(
@@ -86,7 +86,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Student Name',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -100,7 +101,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
               controller: _studentIdController,
               decoration: const InputDecoration(
                 labelText: 'Student ID',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -113,14 +115,18 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            side: BorderSide(color: Color(0xFF1A237E)),
+          ),
           onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E))),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
-            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
           ),
           onPressed: _isSaving ? null : _addStudent,
           child: _isSaving
@@ -130,7 +136,7 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
             child: CircularProgressIndicator(
                 strokeWidth: 2, color: Colors.white),
           )
-              : const Text('Add'),
+              : const Text('Save', style: TextStyle(color: Colors.white),),
         ),
       ],
     );

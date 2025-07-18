@@ -119,7 +119,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
             }
 
             return AlertDialog(
-              title: const Text("Add Questions from Image"),
+              title: const Text("Add Questions", style: TextStyle(color: Color(0xFF1A237E)),),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -132,14 +132,22 @@ class _QuestionsTabState extends State<QuestionsTab> {
                 ],
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                    side: BorderSide(color: Color(0xFF1A237E)),
+                  ),
                   onPressed: isLoading ? null : () => Navigator.pop(context),
-                  child: const Text("Cancel"),
+                  child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                 ),
                 ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A237E),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                  ),
                   onPressed: isLoading ? null : processImage,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Upload"),
+                  icon: const Icon(Icons.upload_file, color: Colors.white,),
+                  label: const Text("Upload", style: TextStyle(color: Colors.white),),
                 ),
               ],
             );
@@ -220,7 +228,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
           child: FloatingActionButton(
             onPressed: _showAddQuestionsFromImageDialog,
             backgroundColor: const Color(0xFF1A237E),
-            child: const Icon(Icons.add_a_photo_outlined),
+            child: const Icon(Icons.add_a_photo_outlined, color: Colors.white,),
           ),
         ),
       ],

@@ -31,14 +31,25 @@ class ExamCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Rename Exam"),
+        title: const Text("Rename Exam", style: TextStyle(color: Color(0xFF1A237E)),),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: "New Exam Name"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          TextButton(
+          OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                side: BorderSide(color: Color(0xFF1A237E)),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E)))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
@@ -53,7 +64,7 @@ class ExamCard extends StatelessWidget {
               }
               Navigator.pop(context);
             },
-            child: const Text("Save"),
+            child: const Text("Save", style: TextStyle(color: Colors.white),),
           ),
         ],
       ),
@@ -64,13 +75,24 @@ class ExamCard extends StatelessWidget {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Exam'),
-        content: const Text('Are you sure you want to delete this exam?'),
+        title: const Text('Delete Exam', style: TextStyle(color: Color(0xFF1A237E)),),
+        content: const Text('Are you sure you want to delete this exam?', style: TextStyle(color: Colors.red)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
+          OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                side: BorderSide(color: Color(0xFF1A237E)),
+              ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

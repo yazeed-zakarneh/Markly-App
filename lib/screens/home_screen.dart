@@ -144,16 +144,24 @@ class SubjectCard extends StatelessWidget {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Course'),
-        content: const Text('Are you sure you want to delete this course?'),
+        title: const Text('Delete Course', style: TextStyle(color: Color(0xFF1A237E)),),
+        content: const Text('Are you sure you want to delete this course?', style: TextStyle(color: Colors.red,),),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              side: BorderSide(color: Color(0xFF1A237E)),
+            ),
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)),),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -179,17 +187,25 @@ class SubjectCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Rename Course"),
+        title: const Text("Rename Course", style: TextStyle(color: Color(0xFF1A237E))),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: "New course Name"),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              side: BorderSide(color: Color(0xFF1A237E)),
+            ),
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
@@ -202,7 +218,7 @@ class SubjectCard extends StatelessWidget {
               }
               Navigator.pop(context);
             },
-            child: const Text("Save"),
+            child: const Text("Save",style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -90,7 +90,7 @@ class _AddExamDialogState extends State<AddExamDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("Add Exam"),
+      title: const Text("Add Exam",style: TextStyle(color: Color(0xFF1A237E)),),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -102,7 +102,8 @@ class _AddExamDialogState extends State<AddExamDialog> {
                     controller: nameController,
                     decoration: const InputDecoration(
                       labelText: "Name",
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10))),
                     ),
                   ),
                 ),
@@ -112,7 +113,8 @@ class _AddExamDialogState extends State<AddExamDialog> {
                     controller: gradeController,
                     decoration: const InputDecoration(
                       labelText: "Max Grade",
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10))),
                     ),
                     keyboardType: TextInputType.number,
                   ),
@@ -124,7 +126,8 @@ class _AddExamDialogState extends State<AddExamDialog> {
               controller: sectionController,
               decoration: const InputDecoration(
                 labelText: "Section",
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               keyboardType: TextInputType.number,
             ),
@@ -132,14 +135,19 @@ class _AddExamDialogState extends State<AddExamDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            side: BorderSide(color: Color(0xFF1A237E)),
+          ),
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
+          child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
         ),
         ElevatedButton(
           onPressed: isSaving ? null : _saveExam,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
           ),
           child: isSaving
               ? const SizedBox(

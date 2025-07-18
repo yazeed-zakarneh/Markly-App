@@ -132,20 +132,19 @@ class _StudentsTabState extends State<StudentsTab> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        title: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1A237E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+          ),
+          onPressed: _isGrading ? null : _gradeAllStudents,
+          icon: Icon(Icons.check_circle_outline, color: _isGrading ? Colors.grey : Colors.white),
+          label: const Text("Start grading", style: TextStyle(color: Colors.white),),
+        ),
+        centerTitle: true,
         automaticallyImplyLeading: false,
-        title: const Text('Students', style: TextStyle(color: Color(0xFF1A237E))),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: Icon(Icons.auto_awesome, color: _isGrading ? Colors.grey : const Color(0xFF1A237E)),
-              tooltip: 'Grade All Students (Calls API)',
-              onPressed: _isGrading ? null : _gradeAllStudents,
-            ),
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF1A237E),
