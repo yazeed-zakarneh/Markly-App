@@ -105,7 +105,7 @@ class _AddClassDialogState extends State<AddClassDialog> {
                     : Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: const [
-                    Icon(Icons.cloud_upload_outlined, size: 32, color: Color(0xFF1A237E)),
+                    Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.blue),
                     SizedBox(height: 8),
                     Text('Tap to select image', style: TextStyle(color: Color(0xFF1A237E))),
                     Text('Supports .jpg/.png', style: TextStyle(fontSize: 12, color: Colors.grey)),
