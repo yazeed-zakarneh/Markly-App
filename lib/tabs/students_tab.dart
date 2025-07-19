@@ -28,7 +28,6 @@ class _StudentsTabState extends State<StudentsTab> {
   final GradingService _gradingService = GradingService();
   bool _isGrading = false;
 
-  // This is the function that does the API call and saves the RAW score
   Future<void> _gradeAllStudents() async {
     setState(() => _isGrading = true);
     showDialog(context: context, barrierDismissible: false, builder: (_) => const AlertDialog(
@@ -88,7 +87,6 @@ class _StudentsTabState extends State<StudentsTab> {
     }
   }
 
-  // This function dynamically calculates scores for display, without calling the API
   Future<List<_StudentScoreData>> _calculateDisplayScores() async {
     final questionsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber');
     final questionDocs = (await questionsQuery.get()).docs;
@@ -119,12 +117,76 @@ class _StudentsTabState extends State<StudentsTab> {
       }
 
       results.add(_StudentScoreData(
-        student: Student.fromMap(studentDoc.data() as Map<String, dynamic>, studentDoc.id),
+        student: Student.fromMap(studentDoc.data(), studentDoc.id),
         totalScaledMark: studentTotalScaledMark,
         totalMaxGrade: totalMaxGrade,
       ));
     }
     return results;
+  }
+
+  Future<void> _deleteStudent(String studentId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Student'),
+        content: const Text('Are you sure you want to delete this student and all their answers? This cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      await FirebaseFirestore.instance
+          .collection('users').doc(userId).collection('classes')
+          .doc(widget.classId).collection('exams').doc(widget.examId)
+          .collection('students').doc(studentId).delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted.')));
+      setState(() {});
+    }
+  }
+
+  Future<void> _editStudent(Student student) async {
+    await showDialog(
+      context: context,
+      builder: (_) => AddStudentDialog(
+        userId: userId,
+        classId: widget.classId,
+        examId: widget.examId,
+        existingStudent: student,
+      ),
+    );
+    setState(() {});
+  }
+
+  // --- دالة جديدة لعرض القائمة المنبثقة ---
+  void _showStudentContextMenu(BuildContext context, Offset position, Student student) async {
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      items: [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Text('Edit Info'),
+        ),
+        const PopupMenuItem(
+          value: 'delete',
+          child: Text('Delete', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
+
+    if (selected == 'edit') {
+      _editStudent(student);
+    } else if (selected == 'delete') {
+      _deleteStudent(student.id);
+    }
   }
 
   @override
@@ -168,22 +230,40 @@ class _StudentsTabState extends State<StudentsTab> {
             itemCount: studentScores.length,
             itemBuilder: (context, index) {
               final scoreData = studentScores[index];
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(scoreData.student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
-                  title: Text(scoreData.student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('ID: ${scoreData.student.studentId}'),
-                  trailing: Text(
-                      '${scoreData.totalScaledMark.toStringAsFixed(1)} / ${scoreData.totalMaxGrade.toStringAsFixed(1)}',
-                      style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 15)
+              final student = scoreData.student;
+
+              // --- بداية التعديلات ---
+              return GestureDetector(
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => StudentScreen(
+                      student: student,
+                      classId: widget.classId,
+                      examId: widget.examId,
+                    ))
+                ).then((_) => setState(() {})),
+
+                onLongPressStart: (details) {
+                  // استدعاء الدالة الجديدة عند الضغط المطول
+                  _showStudentContextMenu(context, details.globalPosition, student);
+                },
+
+                child: Card(
+                  elevation: 2,
+                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
+                    title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text('ID: ${student.studentId}'),
+                    trailing: Text(
+                        '${scoreData.totalScaledMark.toStringAsFixed(1)} / ${scoreData.totalMaxGrade.toStringAsFixed(1)}',
+                        style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 15)
+                    ),
                   ),
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StudentScreen(student: scoreData.student, classId: widget.classId, examId: widget.examId)))
-                      .then((_) => setState(() {})), // Refresh when returning from detail screen
                 ),
               );
+              // --- نهاية التعديلات ---
             },
           );
         },
