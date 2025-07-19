@@ -190,38 +190,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       // Add the CustomDrawer to the Scaffold
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)), // Assuming CustomDrawer is imported
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)), // Assuming CustomDrawer is imported
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const Spacer(),
-            const Text(
-              'Profile',
-              style: TextStyle(
-                fontSize: 18,
-                color: Color(0xFF1A237E),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Spacer(),
-            // This Builder is correctly providing the context for Scaffold.of
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                onPressed: () {
-                  Scaffold.of(context).openDrawer(); // UNCOMMENTED THIS LINE
-                },
-              ),
-            ),
-          ],
+        title: Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 18,
+            color: Color(0xFF1A237E),
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Padding(

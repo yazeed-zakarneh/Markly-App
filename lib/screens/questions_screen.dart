@@ -23,31 +23,15 @@ class QuestionsScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         backgroundColor: Colors.white,
-        drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+        endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          title: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Spacer(),
-              Image.asset(
-                'assets/images/logo_text.png', // Make sure this asset is correctly added
-                height: 40,
-              ),
-              const Spacer(),
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ],
+          title: Image.asset(
+            'assets/images/logo_text.png', // Make sure this asset is correctly added
+            height: 40,
           ),
+          centerTitle: true,
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(96),
             child: Column(

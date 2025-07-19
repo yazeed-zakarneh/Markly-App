@@ -116,14 +116,11 @@ class _StudentPageState extends State<StudentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
-        backgroundColor: Colors.white, elevation: 0, automaticallyImplyLeading: false,
-        title: Row(children: [
-          IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)), onPressed: () => Navigator.pop(context)),
-          const Spacer(), Image.asset('assets/images/logo_text.png', height: 40), const Spacer(),
-          Builder(builder: (context) => IconButton(icon: const Icon(Icons.menu, color: Color(0xFF1A237E)), onPressed: () => Scaffold.of(context).openDrawer())),
-        ]),
+        backgroundColor: Colors.white, elevation: 0,
+        title: Image.asset('assets/images/logo_text.png', height: 40),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),

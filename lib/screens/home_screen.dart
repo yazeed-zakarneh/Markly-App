@@ -15,26 +15,12 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
-        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Stack(
-          alignment: Alignment.center,
-          children: [
-            Center(child: Image.asset('assets/images/logo_text.png', height: 40)),
-            Positioned(
-              right: 0,
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ),
-          ],
-        ),
+        title: Image.asset('assets/images/logo_text.png', height: 40),
+        centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

@@ -14,29 +14,17 @@ class AboutUsScreen extends StatelessWidget {
       endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       backgroundColor: Colors.white,
       appBar: AppBar(
-
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const Spacer(),
-            const Text(
-              'About Us',
-              style: TextStyle(
-                color: Color(0xFF1A237E),
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const Spacer(),
-
-          ],
+        title: Text(
+          'About Us',
+          style: TextStyle(
+            color: Color(0xFF1A237E),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
