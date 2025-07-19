@@ -129,13 +129,24 @@ class _StudentsTabState extends State<StudentsTab> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Student'),
-        content: const Text('Are you sure you want to delete this student and all their answers? This cannot be undone.'),
+        title: const Text('Delete Student',style: TextStyle(color: Color(0xFF1A237E)),),
+        content: const Text(style: TextStyle(color: Colors.red),'Are you sure you want to delete this student and all their answers? You won\'t be able to restore them!'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(
+          OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                side: BorderSide(color: Color(0xFF1A237E)),
+              ),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)))
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete',style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

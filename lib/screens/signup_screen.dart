@@ -110,11 +110,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const CircleAvatar(
-                      radius: 60,
-                      backgroundImage: AssetImage('assets/images/logo.png'),
-                      backgroundColor: Colors.transparent,
+                    // --- THIS IS THE UPDATED WIDGET ---
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF1A237E), // Border color
+                          width: 2.0,                     // Border thickness
+                        ),
+                      ),
+                      child: const CircleAvatar(
+                        radius: 60,
+                        backgroundImage: AssetImage('assets/images/logo.png'),
+                        backgroundColor: Colors.transparent,
+                      ),
                     ),
+                    // --- END OF UPDATE ---
                     const SizedBox(height: 32),
                     Row(
                       children: [

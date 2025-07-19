@@ -76,7 +76,7 @@ class ExamCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Exam', style: TextStyle(color: Color(0xFF1A237E)),),
-        content: const Text('Are you sure you want to delete this exam?', style: TextStyle(color: Colors.red)),
+        content: const Text('Are you sure you want to delete this exam? You won\'t be able to restore it!', style: TextStyle(color: Colors.red)),
         actions: [
           OutlinedButton(
               style: OutlinedButton.styleFrom(

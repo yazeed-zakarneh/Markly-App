@@ -131,7 +131,7 @@ class SubjectCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Course', style: TextStyle(color: Color(0xFF1A237E)),),
-        content: const Text('Are you sure you want to delete this course?', style: TextStyle(color: Colors.red,),),
+        content: const Text("Are you sure you want to delete this course? You won't be able to restore it!", style: TextStyle(color: Colors.red,),),
         actions: [
           OutlinedButton(
             style: OutlinedButton.styleFrom(
