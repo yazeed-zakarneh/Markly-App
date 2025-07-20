@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,8 +7,25 @@ import '../dialogs/change_photo_dialog.dart';
 import 'exam_list_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-class HomeScreen extends StatelessWidget {
+// ⬇️ UPDATE: Converted to a StatefulWidget
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // ⬇️ UPDATE: Added state for the search query and controller
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is removed
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +70,30 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: const TextField(
+              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
                 decoration: InputDecoration(
-                  hintText: 'Search',
+                  hintText: 'Search courses...',
                   border: InputBorder.none,
-                  icon: Icon(Icons.search),
+                  icon: const Icon(Icons.search),
+                  // Add a clear button to the search bar
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  )
+                      : null,
                 ),
               ),
             ),
@@ -76,8 +113,22 @@ class HomeScreen extends StatelessWidget {
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const Center(child: Text('No courses yet.'));
                   }
+
+                  // ⬇️ UPDATE: Filtering logic added here
+                  final allDocs = snapshot.data!.docs;
+                  final filteredDocs = allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final className = (data['name'] ?? '').toLowerCase();
+                    return className.contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredDocs.isEmpty) {
+                    return const Center(child: Text('No matching courses found.'));
+                  }
+
+                  // Build the ListView with the filtered list
                   return ListView(
-                    children: snapshot.data!.docs.map((doc) {
+                    children: filteredDocs.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       final classId = doc.id;
                       final className = data['name'] ?? 'Unnamed Course';
@@ -112,6 +163,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 }
+
 
 class SubjectCard extends StatefulWidget {
   final String title;

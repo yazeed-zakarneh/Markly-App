@@ -1,5 +1,3 @@
-// lib/screens/exam_list_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,7 +6,8 @@ import '../dialogs/add_exam_dialog.dart';
 import '../screens/questions_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-class ExamListScreen extends StatelessWidget {
+// ⬇️ UPDATE: Converted to a StatefulWidget
+class ExamListScreen extends StatefulWidget {
   final String classId;
   final String className;
 
@@ -17,6 +16,21 @@ class ExamListScreen extends StatelessWidget {
     required this.classId,
     required this.className,
   });
+
+  @override
+  State<ExamListScreen> createState() => _ExamListScreenState();
+}
+
+class _ExamListScreenState extends State<ExamListScreen> {
+  // ⬇️ UPDATE: Added state for the search query and controller
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +44,7 @@ class ExamListScreen extends StatelessWidget {
         onPressed: () {
           showDialog(
             context: context,
-            builder: (_) => AddExamDialog(userId: userId, classId: classId),
+            builder: (_) => AddExamDialog(userId: userId, classId: widget.classId),
           );
         },
         child: const Icon(Icons.add, color: Colors.white),
@@ -51,7 +65,7 @@ class ExamListScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             Text(
-              className,
+              widget.className,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -65,11 +79,29 @@ class ExamListScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
                 color: Colors.grey[200],
               ),
-              child: const TextField(
+              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
                 decoration: InputDecoration(
-                  hintText: "Search",
+                  hintText: "Search exams...",
                   border: InputBorder.none,
-                  icon: Icon(Icons.search),
+                  icon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  )
+                      : null,
                 ),
               ),
             ),
@@ -80,7 +112,7 @@ class ExamListScreen extends StatelessWidget {
                     .collection('users')
                     .doc(userId)
                     .collection('classes')
-                    .doc(classId)
+                    .doc(widget.classId)
                     .collection('exams')
                     .orderBy('section')
                     .snapshots(),
@@ -88,27 +120,37 @@ class ExamListScreen extends StatelessWidget {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  final docs = snapshot.data!.docs;
-                  if (docs.isEmpty) {
+
+                  // ⬇️ UPDATE: Filtering logic added here
+                  final allDocs = snapshot.data!.docs;
+                  final filteredDocs = allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final examTitle = (data['title'] ?? '').toLowerCase();
+                    return examTitle.contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredDocs.isEmpty) {
+                    if (_searchQuery.isNotEmpty) {
+                      return const Center(child: Text("No matching exams found."));
+                    }
                     return const Center(child: Text("No exams yet."));
                   }
+
+                  // Build the ListView with the filtered list
                   return ListView.builder(
-                    itemCount: docs.length,
+                    itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {
-                      final doc = docs[index];
+                      final doc = filteredDocs[index];
                       final exam = doc.data() as Map<String, dynamic>;
 
-                      // ⬇️⬇️ START OF CHANGES ⬇️⬇️
                       return ExamCard(
                         examId: doc.id,
                         userId: userId,
-                        classId: classId,
+                        classId: widget.classId,
                         title: exam['title'],
-                        // Making the reads null-safe and ensuring they are doubles
                         min: (exam['min'] as num? ?? 0.0).toDouble(),
                         max: (exam['max'] as num? ?? 0.0).toDouble(),
                         avg: (exam['avg'] as num? ?? 0.0).toDouble(),
-                        // Reading the new field to pass to the card
                         scaleMaxGrade: (exam['scaleMaxGrade'] as num? ?? 0).toDouble(),
                         section: exam['section'] ?? 0,
                         onTap: () {
@@ -116,16 +158,15 @@ class ExamListScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (_) => QuestionsScreen(
-                                className: className,
+                                className: widget.className,
                                 examTitle: exam['title'],
-                                classId: classId,
+                                classId: widget.classId,
                                 examId: doc.id,
                               ),
                             ),
                           );
                         },
                       );
-                      // ⬆️⬆️ END OF CHANGES ⬆️⬆️
                     },
                   );
                 },
