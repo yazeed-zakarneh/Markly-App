@@ -29,6 +29,15 @@ class StudentsTab extends StatefulWidget {
 }
 
 class _StudentsTabState extends State<StudentsTab> {
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   final String userId = FirebaseAuth.instance.currentUser!.uid;
   final GradingService _gradingService = GradingService();
   bool _isGrading = false;
@@ -249,7 +258,6 @@ class _StudentsTabState extends State<StudentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final cardSurfaceColor = Theme.of(context).colorScheme.surface;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -275,58 +283,109 @@ class _StudentsTabState extends State<StudentsTab> {
         },
         child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: FutureBuilder<List<_StudentScoreData>>(
-        future: _calculateDisplayScores(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('No students found.', style: TextStyle(fontSize: 16, color: Colors.grey)));
-
-          final studentScores = snapshot.data!;
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(8.0).copyWith(bottom: 80),
-            itemCount: studentScores.length,
-            itemBuilder: (context, index) {
-              final scoreData = studentScores[index];
-              final student = scoreData.student;
-
-              return GestureDetector(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => StudentScreen(
-                      student: student,
-                      classId: widget.classId,
-                      examId: widget.examId,
-                    ))
-                ).then((_) => setState(() {})),
-
-                onLongPressStart: (details) {
-                  _showStudentContextMenu(context, details.globalPosition, student);
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                color: Colors.grey[200],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
                 },
-
-                child: Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
-                    title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text('ID: ${student.studentId}'),
-                    trailing: Text(
-                      '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
-                      style: TextStyle(
-                          color: Color(0xFF1A237E),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15
-                      ),
-                    ),
-                  ),
+                decoration: InputDecoration(
+                  hintText: "Search students...",
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() { _searchQuery = ''; });
+                    },
+                  )
+                      : null,
                 ),
-              );
-            },
-          );
-        },
+              ),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: FutureBuilder<List<_StudentScoreData>>(
+                future: _calculateDisplayScores(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('No students found.', style: TextStyle(fontSize: 16, color: Colors.grey)));
+
+                  final allStudentScores = snapshot.data!;
+
+                  // Filtering logic
+                  final filteredStudentScores = allStudentScores.where((scoreData) {
+                    final studentName = scoreData.student.name.toLowerCase();
+                    final studentId = scoreData.student.studentId;
+                    return studentName.contains(_searchQuery) || studentId.contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredStudentScores.isEmpty) {
+                    return const Center(child: Text("No matching students found."));
+                  }
+
+                  // ListView with filtered data
+                  return ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 80),
+                    itemCount: filteredStudentScores.length,
+                    itemBuilder: (context, index) {
+                      final scoreData = filteredStudentScores[index];
+                      final student = scoreData.student;
+
+                      return GestureDetector(
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => StudentScreen(
+                              student: student,
+                              classId: widget.classId,
+                              examId: widget.examId,
+                            ))
+                        ).then((_) => setState(() {})),
+                        onLongPressStart: (details) {
+                          _showStudentContextMenu(context, details.globalPosition, student);
+                        },
+                        child: Card(
+                          elevation: 2,
+                          // Use horizontal: 0 to align with home screen cards
+                          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
+                            title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('ID: ${student.studentId}'),
+                            trailing: Text(
+                              '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
+                              style: const TextStyle(
+                                  color: Color(0xFF1A237E),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
