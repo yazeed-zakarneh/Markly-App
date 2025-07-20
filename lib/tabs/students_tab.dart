@@ -249,6 +249,7 @@ class _StudentsTabState extends State<StudentsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final cardSurfaceColor = Theme.of(context).colorScheme.surface;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -312,9 +313,21 @@ class _StudentsTabState extends State<StudentsTab> {
                     leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
                     title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('ID: ${student.studentId}'),
-                    trailing: Text(
-                        '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
-                        style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 15)
+                    trailing: Container(
+                      padding: EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Color(0xFF1A237E)),
+                        borderRadius: BorderRadius.circular(10),
+                        color: Color(0xFF1A237E),
+                      ),
+                      child: Text(
+                          '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
+                          style: TextStyle(
+                              color: cardSurfaceColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15
+                          ),
+                      ),
                     ),
                   ),
                 ),

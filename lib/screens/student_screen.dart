@@ -137,13 +137,21 @@ class _StudentPageState extends State<StudentScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             Center(
               child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A237E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                ),
                 onPressed: _isProcessing ? null : _addAndProcessSheet,
-                icon: _isProcessing ? Container(width: 20, height: 20, margin: const EdgeInsets.only(right: 8), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.add_a_photo_outlined, color: Colors.white,),
-                label: Text(_isProcessing ? 'Processing...' : 'Add Answer Sheet'),
+                icon: _isProcessing ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.add_a_photo_outlined, color: Colors.white,),
+                label: Text(_isProcessing ? 'Processing...' : 'Add Answer Sheet', style: TextStyle(fontSize: 15),),
               ),
             ),
             const SizedBox(height: 16),
@@ -168,7 +176,7 @@ class _StudentPageState extends State<StudentScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
                           'Total Mark: ${totalScaledScore.toStringAsFixed(1)} / ${totalMaxGrade.toStringAsFixed(1)}',
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.teal),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
                         ),
                       ),
                       Expanded(
@@ -202,6 +210,7 @@ class _QaDisplayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cardSurfaceColor = Theme.of(context).colorScheme.surface;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -218,9 +227,21 @@ class _QaDisplayCard extends StatelessWidget {
                     child: Text(question, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1A237E)))),
                 if (mark != null) ...[
                   const SizedBox(width: 16),
-                  Text(
-                    '${mark!.toStringAsFixed(1)} / ${maxGrade?.toStringAsFixed(1) ?? '10'}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.teal),
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Color(0xFF1A237E)),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Color(0xFF1A237E),
+                    ),
+                    child: Text(
+                      '${mark!.toStringAsFixed(1)} / ${maxGrade?.toStringAsFixed(1) ?? '10'}',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: cardSurfaceColor,
+                      ),
+                    ),
                   ),
                 ],
               ],

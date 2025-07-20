@@ -41,7 +41,7 @@ class QuestionsScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Text(
-                    '$className > $examTitle',
+                    '$className - $examTitle',
                     style: const TextStyle(
                       color: Color(0xFF1A237E),
                       fontWeight: FontWeight.bold,

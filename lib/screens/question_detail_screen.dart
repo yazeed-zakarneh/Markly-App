@@ -119,7 +119,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '${widget.className} > ${widget.examTitle} > ${widget.questionName}',
+                '${widget.className} - ${widget.examTitle} - ${widget.questionName}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A237E),
