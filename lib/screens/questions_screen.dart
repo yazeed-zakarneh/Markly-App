@@ -57,8 +57,14 @@ class QuestionsScreen extends StatelessWidget {
                   unselectedLabelColor: Colors.grey,
                   labelStyle: TextStyle(fontWeight: FontWeight.bold),
                   tabs: [
-                    Tab(text: 'Questions'),
-                    Tab(text: 'Students'),
+                    Tab(
+                      icon: Icon(Icons.help),
+                        text: 'Questions'
+                    ),
+                    Tab(
+                      icon: Icon(Icons.people_alt_rounded),
+                        text: 'Students'
+                    ),
                   ],
                 ),
               ],

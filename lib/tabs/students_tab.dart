@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -6,12 +7,16 @@ import '../models/student_model.dart';
 import '../screens/student_screen.dart';
 import '../models/grading_model.dart';
 
-// Helper class to hold the dynamically calculated data
 class _StudentScoreData {
   final Student student;
-  final double totalScaledMark;
-  final double totalMaxGrade;
-  _StudentScoreData({ required this.student, required this.totalScaledMark, required this.totalMaxGrade });
+  final double finalScaledMark;
+  final double examMaxGrade;
+
+  _StudentScoreData({
+    required this.student,
+    required this.finalScaledMark,
+    required this.examMaxGrade,
+  });
 }
 
 class StudentsTab extends StatefulWidget {
@@ -31,35 +36,35 @@ class _StudentsTabState extends State<StudentsTab> {
   Future<void> _gradeAllStudents() async {
     setState(() => _isGrading = true);
     showDialog(context: context, barrierDismissible: false, builder: (_) => const AlertDialog(
-        content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20), Text("Grading all students...")]))
+        content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20), Text("Grading & calculating...")]))
     );
 
     try {
-      final questionsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber');
+      final examRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId);
+      final examDoc = await examRef.get();
+      if (!examDoc.exists) throw Exception("Exam not found");
+
+      // ⬇️ UPDATE: Read from the new 'scaleMaxGrade' field for calculations
+      final double examMaxGradeForScaling = (examDoc.data()!['scaleMaxGrade'] as num).toDouble();
+
+      final questionsRef = examRef.collection('questions').orderBy('questionNumber');
       final questionDocs = (await questionsRef.get()).docs;
 
-      final studentsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students');
+      final studentsRef = examRef.collection('students');
       final studentDocs = (await studentsRef.get()).docs;
 
       if (questionDocs.isEmpty || studentDocs.isEmpty) throw Exception("Missing questions or students to grade.");
 
+      // --- Part 1: Grade all answers ---
       final batch = FirebaseFirestore.instance.batch();
-
       for (final studentDoc in studentDocs) {
         final studentAnswersSnapshot = await studentDoc.reference.collection('answers').orderBy('questionNumber').get();
         final studentAnswerDocs = studentAnswersSnapshot.docs;
-
-        if (studentAnswerDocs.isEmpty) {
-          print("Skipping ${studentDoc.data()['name']}: No answers found.");
-          continue;
-        }
-
+        if (studentAnswerDocs.isEmpty) continue;
         final int loopCount = questionDocs.length < studentAnswerDocs.length ? questionDocs.length : studentAnswerDocs.length;
-
         for (int i = 0; i < loopCount; i++) {
           final questionData = questionDocs[i].data();
           final studentAnswerDoc = studentAnswerDocs[i];
-
           try {
             final double baseMark = await _gradingService.gradeAnswer(
               question: questionData['fullQuestion'],
@@ -67,16 +72,46 @@ class _StudentsTabState extends State<StudentsTab> {
               studentAnswer: studentAnswerDoc.data()['studentAnswer'],
             );
             batch.update(studentAnswerDoc.reference, {'mark': baseMark});
-          } catch (e) {
-            print("Error grading Q${i+1} for ${studentDoc.data()['name']}: $e");
-          }
+          } catch (e) { print("Error grading Q${i+1} for ${studentDoc.data()['name']}: $e"); }
         }
       }
-
       await batch.commit();
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading complete!')));
 
+      // --- Part 2: Calculate and update Min, Max, and Avg ---
+      double questionsRawTotal = 0.0;
+      for (final doc in questionDocs) {
+        questionsRawTotal += double.tryParse(doc.data()['text2'] ?? '10.0') ?? 10.0;
+      }
+      if (questionsRawTotal == 0) questionsRawTotal = 1.0;
+
+      List<double> finalScores = [];
+      final updatedStudentDocs = (await studentsRef.get()).docs;
+
+      for (final studentDoc in updatedStudentDocs) {
+        double studentRawScore = 0.0;
+        final answersSnapshot = await studentDoc.reference.collection('answers').get();
+        for (final answerDoc in answersSnapshot.docs) {
+          studentRawScore += (answerDoc.data()['mark'] as num?)?.toDouble() ?? 0.0;
+        }
+        final finalScaledMark = (studentRawScore / questionsRawTotal) * examMaxGradeForScaling;
+        finalScores.add(finalScaledMark);
+      }
+
+      if (finalScores.isNotEmpty) {
+        final double maxScore = finalScores.reduce(math.max);
+        final double minScore = finalScores.reduce(math.min);
+        final double avgScore = finalScores.reduce((a, b) => a + b) / finalScores.length;
+
+        // ⬇️ UPDATE: Write the calculated results to the display fields ('min', 'max', 'avg')
+        await examRef.update({
+          'min': minScore,
+          'max': maxScore,
+          'avg': avgScore,
+        });
+      }
+
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading and calculations complete!')));
       setState(() {});
 
     } catch (e) {
@@ -88,42 +123,55 @@ class _StudentsTabState extends State<StudentsTab> {
   }
 
   Future<List<_StudentScoreData>> _calculateDisplayScores() async {
-    final questionsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber');
+    final examDoc = await FirebaseFirestore.instance
+        .collection('users').doc(userId)
+        .collection('classes').doc(widget.classId)
+        .collection('exams').doc(widget.examId)
+        .get();
+
+    if (!examDoc.exists) throw Exception("Exam document not found!");
+
+    // ⬇️ UPDATE: Read from 'scaleMaxGrade' for displaying student scores correctly
+    final double examMaxGradeForDisplay = (examDoc.data()!['scaleMaxGrade'] as num).toDouble();
+
+    final questionsQuery = FirebaseFirestore.instance
+        .collection('users').doc(userId).collection('classes')
+        .doc(widget.classId).collection('exams').doc(widget.examId).collection('questions');
     final questionDocs = (await questionsQuery.get()).docs;
 
-    double totalMaxGrade = 0.0;
+    double questionsRawTotal = 0.0;
     for (final doc in questionDocs) {
-      totalMaxGrade += double.tryParse(doc.data()['text2'] ?? '10.0') ?? 10.0;
+      questionsRawTotal += double.tryParse(doc.data()['text2'] ?? '10.0') ?? 10.0;
     }
+    if (questionsRawTotal == 0) questionsRawTotal = 1.0;
 
-    final studentsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students').orderBy('name');
+    final studentsQuery = FirebaseFirestore.instance
+        .collection('users').doc(userId).collection('classes')
+        .doc(widget.classId).collection('exams').doc(widget.examId).collection('students').orderBy('name');
     final studentDocs = (await studentsQuery.get()).docs;
 
     final List<_StudentScoreData> results = [];
 
     for (final studentDoc in studentDocs) {
-      double studentTotalScaledMark = 0.0;
-      final answersQuery = studentDoc.reference.collection('answers').orderBy('questionNumber');
+      double studentRawScore = 0.0;
+      final answersQuery = studentDoc.reference.collection('answers');
       final answerDocs = (await answersQuery.get()).docs;
 
-      final int loopCount = questionDocs.length < answerDocs.length ? questionDocs.length : answerDocs.length;
-
-      for (int i = 0; i < loopCount; i++) {
-        final questionData = questionDocs[i].data();
-        final answerData = answerDocs[i].data();
-        final double baseMark = (answerData['mark'] as num?)?.toDouble() ?? 0.0;
-        final double maxGradeForQuestion = double.tryParse(questionData['text2'] ?? '10.0') ?? 10.0;
-        studentTotalScaledMark += (baseMark * maxGradeForQuestion) / 10.0;
+      for (final answerDoc in answerDocs) {
+        studentRawScore += (answerDoc.data()['mark'] as num?)?.toDouble() ?? 0.0;
       }
+
+      final double finalScaledMark = (studentRawScore / questionsRawTotal) * examMaxGradeForDisplay;
 
       results.add(_StudentScoreData(
         student: Student.fromMap(studentDoc.data(), studentDoc.id),
-        totalScaledMark: studentTotalScaledMark,
-        totalMaxGrade: totalMaxGrade,
+        finalScaledMark: finalScaledMark,
+        examMaxGrade: examMaxGradeForDisplay,
       ));
     }
     return results;
   }
+
 
   Future<void> _deleteStudent(String studentId) async {
     final shouldDelete = await showDialog<bool>(
@@ -142,7 +190,7 @@ class _StudentsTabState extends State<StudentsTab> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF1A237E),
+              backgroundColor: const Color(0xFF1A237E),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
             ),
             onPressed: () => Navigator.pop(context, true),
@@ -176,7 +224,6 @@ class _StudentsTabState extends State<StudentsTab> {
     setState(() {});
   }
 
-  // --- دالة جديدة لعرض القائمة المنبثقة ---
   void _showStudentContextMenu(BuildContext context, Offset position, Student student) async {
     final selected = await showMenu<String>(
       context: context,
@@ -243,7 +290,6 @@ class _StudentsTabState extends State<StudentsTab> {
               final scoreData = studentScores[index];
               final student = scoreData.student;
 
-              // --- بداية التعديلات ---
               return GestureDetector(
                 onTap: () => Navigator.push(
                     context,
@@ -255,7 +301,6 @@ class _StudentsTabState extends State<StudentsTab> {
                 ).then((_) => setState(() {})),
 
                 onLongPressStart: (details) {
-                  // استدعاء الدالة الجديدة عند الضغط المطول
                   _showStudentContextMenu(context, details.globalPosition, student);
                 },
 
@@ -268,13 +313,12 @@ class _StudentsTabState extends State<StudentsTab> {
                     title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text('ID: ${student.studentId}'),
                     trailing: Text(
-                        '${scoreData.totalScaledMark.toStringAsFixed(1)} / ${scoreData.totalMaxGrade.toStringAsFixed(1)}',
+                        '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
                         style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 15)
                     ),
                   ),
                 ),
               );
-              // --- نهاية التعديلات ---
             },
           );
         },

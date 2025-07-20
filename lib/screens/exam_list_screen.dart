@@ -1,3 +1,5 @@
+// lib/screens/exam_list_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -48,7 +50,6 @@ class ExamListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            /// Class Name
             Text(
               className,
               style: const TextStyle(
@@ -57,8 +58,6 @@ class ExamListScreen extends StatelessWidget {
                 color: Color(0xFF1A237E),
               ),
             ),
-
-            /// Search
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -75,8 +74,6 @@ class ExamListScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-
-            /// Exams List
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -91,27 +88,28 @@ class ExamListScreen extends StatelessWidget {
                   if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
-
                   final docs = snapshot.data!.docs;
-
                   if (docs.isEmpty) {
                     return const Center(child: Text("No exams yet."));
                   }
-
                   return ListView.builder(
                     itemCount: docs.length,
                     itemBuilder: (context, index) {
-                      final doc = docs[index]; // ✅ Define doc here
+                      final doc = docs[index];
                       final exam = doc.data() as Map<String, dynamic>;
 
+                      // ⬇️⬇️ START OF CHANGES ⬇️⬇️
                       return ExamCard(
-                        examId: doc.id, // ✅ Now doc is defined
+                        examId: doc.id,
                         userId: userId,
                         classId: classId,
                         title: exam['title'],
-                        min: exam['min'],
-                        max: exam['max'],
-                        avg: (exam['avg'] as num).toDouble(),
+                        // Making the reads null-safe and ensuring they are doubles
+                        min: (exam['min'] as num? ?? 0.0).toDouble(),
+                        max: (exam['max'] as num? ?? 0.0).toDouble(),
+                        avg: (exam['avg'] as num? ?? 0.0).toDouble(),
+                        // Reading the new field to pass to the card
+                        scaleMaxGrade: (exam['scaleMaxGrade'] as num? ?? 0).toDouble(),
                         section: exam['section'] ?? 0,
                         onTap: () {
                           Navigator.push(
@@ -127,6 +125,7 @@ class ExamListScreen extends StatelessWidget {
                           );
                         },
                       );
+                      // ⬆️⬆️ END OF CHANGES ⬆️⬆️
                     },
                   );
                 },

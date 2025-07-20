@@ -4,9 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ExamCard extends StatelessWidget {
   final int section;
   final String title;
-  final int min;
-  final int max;
+  final double min;
+  final double max;
   final double avg;
+  final double scaleMaxGrade;
   final String examId;
   final String classId;
   final String userId;
@@ -19,15 +20,16 @@ class ExamCard extends StatelessWidget {
     required this.min,
     required this.max,
     required this.avg,
+    required this.scaleMaxGrade,
     required this.examId,
     required this.classId,
     required this.userId,
     required this.onTap,
   });
 
+  // This function is for renaming the exam title.
   void _showRenameDialog(BuildContext context) {
     final controller = TextEditingController(text: title);
-
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -40,7 +42,7 @@ class ExamCard extends StatelessWidget {
           OutlinedButton(
               style: OutlinedButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                side: BorderSide(color: Color(0xFF1A237E)),
+                side: const BorderSide(color: Color(0xFF1A237E)),
               ),
               onPressed: () => Navigator.pop(context),
               child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E)))
@@ -54,12 +56,8 @@ class ExamCard extends StatelessWidget {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
                 await FirebaseFirestore.instance
-                    .collection('users')
-                    .doc(userId)
-                    .collection('classes')
-                    .doc(classId)
-                    .collection('exams')
-                    .doc(examId)
+                    .collection('users').doc(userId).collection('classes')
+                    .doc(classId).collection('exams').doc(examId)
                     .update({'title': newName});
               }
               Navigator.pop(context);
@@ -71,6 +69,7 @@ class ExamCard extends StatelessWidget {
     );
   }
 
+  // This function is for deleting the entire exam.
   void _showDeleteDialog(BuildContext context) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -81,14 +80,14 @@ class ExamCard extends StatelessWidget {
           OutlinedButton(
               style: OutlinedButton.styleFrom(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                side: BorderSide(color: Color(0xFF1A237E)),
+                side: const BorderSide(color: Color(0xFF1A237E)),
               ),
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)))
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFF1A237E),
+              backgroundColor: const Color(0xFF1A237E),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
             ),
             onPressed: () => Navigator.pop(context, true),
@@ -97,29 +96,73 @@ class ExamCard extends StatelessWidget {
         ],
       ),
     );
-
     if (shouldDelete == true) {
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('classes')
-          .doc(classId)
-          .collection('exams')
-          .doc(examId)
-          .delete();
-
+          .collection('users').doc(userId).collection('classes')
+          .doc(classId).collection('exams').doc(examId).delete();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Exam deleted')),
       );
     }
   }
 
+  // ⬇️⬇️ NEW FUNCTION TO CHANGE THE SCALING GRADE ⬇️⬇️
+  void _showChangeGradeDialog(BuildContext context) {
+    final controller = TextEditingController(text: scaleMaxGrade.toStringAsFixed(0));
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Change Max Grade", style: TextStyle(color: Color(0xFF1A237E))),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: "New Max Grade (for scaling)"),
+        ),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              side: const BorderSide(color: Color(0xFF1A237E)),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () async {
+              final newGrade = double.tryParse(controller.text.trim());
+              if (newGrade != null && newGrade > 0) {
+                await FirebaseFirestore.instance
+                    .collection('users').doc(userId).collection('classes')
+                    .doc(classId).collection('exams').doc(examId)
+                    .update({'scaleMaxGrade': newGrade});
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Grade updated. Re-grade students to apply changes.'))
+                );
+              }
+              Navigator.pop(context);
+            },
+            child: const Text("Save", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // This function shows the menu with all options.
   void _showOptionsMenu(BuildContext context, Offset position) async {
     final selected = await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, 0, 0),
       items: [
         const PopupMenuItem(value: 'rename', child: Text('Rename')),
+        // ⬇️⬇️ NEW MENU ITEM ⬇️⬇️
+        const PopupMenuItem(value: 'change_grade', child: Text('Change Grade')),
         const PopupMenuItem(
           value: 'delete',
           child: Text('Delete', style: TextStyle(color: Colors.red)),
@@ -129,6 +172,9 @@ class ExamCard extends StatelessWidget {
 
     if (selected == 'rename') {
       _showRenameDialog(context);
+      // ⬇️⬇️ NEW LOGIC TO HANDLE THE SELECTION ⬇️⬇️
+    } else if (selected == 'change_grade') {
+      _showChangeGradeDialog(context);
     } else if (selected == 'delete') {
       _showDeleteDialog(context);
     }
@@ -136,6 +182,8 @@ class ExamCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String maxGradeStr = scaleMaxGrade.toStringAsFixed(0);
+
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: (details) => _showOptionsMenu(context, details.globalPosition),
@@ -162,7 +210,14 @@ class ExamCard extends StatelessWidget {
                   children: [
                     Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Text("Min: $min   Max: $max   Avg: $avg", style: const TextStyle(fontSize: 14, color: Colors.grey)),
+                    Text(
+                        "Min: ${min.toStringAsFixed(1)}/$maxGradeStr   Max: ${max.toStringAsFixed(1)}/$maxGradeStr",
+                        style: const TextStyle(fontSize: 13, color: Colors.grey)
+                    ),
+                    Text(
+                        "Avg: ${avg.toStringAsFixed(1)}/$maxGradeStr",
+                        style: const TextStyle(fontSize: 13, color: Colors.grey)
+                    ),
                   ],
                 ),
               ),
