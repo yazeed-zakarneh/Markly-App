@@ -1,3 +1,5 @@
+// lib/dialogs/add_exam_dialog.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -56,10 +58,11 @@ class _AddExamDialogState extends State<AddExamDialog> {
 
   Future<void> _saveExam() async {
     final name = nameController.text.trim();
-    final maxGrade = int.tryParse(gradeController.text) ?? 0;
+    // This is the 'Max Grade for Scaling'
+    final scaleGrade = int.tryParse(gradeController.text) ?? 0;
     final section = int.tryParse(sectionController.text) ?? -1;
 
-    if (name.isEmpty || maxGrade <= 0 || section <= 0) {
+    if (name.isEmpty || scaleGrade <= 0 || section <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill all fields correctly")),
       );
@@ -68,6 +71,7 @@ class _AddExamDialogState extends State<AddExamDialog> {
 
     setState(() => isSaving = true);
 
+    // ⬇️⬇️ UPDATE: Saving to the new data structure ⬇️⬇️
     await FirebaseFirestore.instance
         .collection('users')
         .doc(widget.userId)
@@ -76,11 +80,15 @@ class _AddExamDialogState extends State<AddExamDialog> {
         .collection('exams')
         .add({
       'title': name,
-      'max': maxGrade,
       'section': section,
-      'min': 0,
-      'avg': 0,
+      // NEW FIELD: This is for calculation only.
+      'scaleMaxGrade': scaleGrade,
+      // OLD FIELDS: These are for display and will be calculated later.
+      'min': 0.0, // Lowest achieved score, starts at 0
+      'max': 0.0, // Highest achieved score, starts at 0
+      'avg': 0.0,
     });
+    // ⬆️⬆️ END OF UPDATE ⬆️⬆️
 
     setState(() => isSaving = false);
     Navigator.pop(context);
@@ -90,20 +98,31 @@ class _AddExamDialogState extends State<AddExamDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("Add Exam"),
+      title: const Text("Add Exam",style: TextStyle(color: Color(0xFF1A237E)),),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: "Name",
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: nameController,
+                    controller: sectionController,
                     decoration: const InputDecoration(
-                      labelText: "Name",
-                      border: OutlineInputBorder(),
+                      labelText: "Section",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10))),
                     ),
+                    keyboardType: TextInputType.number,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -111,35 +130,33 @@ class _AddExamDialogState extends State<AddExamDialog> {
                   child: TextField(
                     controller: gradeController,
                     decoration: const InputDecoration(
-                      labelText: "Max Grade",
-                      border: OutlineInputBorder(),
+                      labelText: "Max Grade (for scaling)",
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10))),
                     ),
                     keyboardType: TextInputType.number,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: sectionController,
-              decoration: const InputDecoration(
-                labelText: "Section",
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
+
           ],
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            side: BorderSide(color: Color(0xFF1A237E)),
+          ),
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
+          child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
         ),
         ElevatedButton(
           onPressed: isSaving ? null : _saveExam,
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
           ),
           child: isSaving
               ? const SizedBox(

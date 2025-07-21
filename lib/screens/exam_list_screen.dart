@@ -6,7 +6,8 @@ import '../dialogs/add_exam_dialog.dart';
 import '../screens/questions_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-class ExamListScreen extends StatelessWidget {
+// ⬇️ UPDATE: Converted to a StatefulWidget
+class ExamListScreen extends StatefulWidget {
   final String classId;
   final String className;
 
@@ -17,46 +18,45 @@ class ExamListScreen extends StatelessWidget {
   });
 
   @override
+  State<ExamListScreen> createState() => _ExamListScreenState();
+}
+
+class _ExamListScreenState extends State<ExamListScreen> {
+  // ⬇️ UPDATE: Added state for the search query and controller
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF1A237E),
         onPressed: () {
           showDialog(
             context: context,
-            builder: (_) => AddExamDialog(userId: userId, classId: classId),
+            builder: (_) => AddExamDialog(userId: userId, classId: widget.classId),
           );
         },
         child: const Icon(Icons.add, color: Colors.white),
       ),
       appBar: AppBar(
-        automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const Spacer(),
-            Image.asset(
-              'assets/images/logo_text.png',
-              height: 40,
-            ),
-            const Spacer(),
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-          ],
+        title: Image.asset(
+          'assets/images/logo_text.png',
+          height: 40,
         ),
+        centerTitle: true,
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -64,17 +64,14 @@ class ExamListScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 8),
-            /// Class Name
             Text(
-              className,
+              widget.className,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
                 color: Color(0xFF1A237E),
               ),
             ),
-
-            /// Search
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -82,24 +79,40 @@ class ExamListScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
                 color: Colors.grey[200],
               ),
-              child: const TextField(
+              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
                 decoration: InputDecoration(
-                  hintText: "Search",
+                  hintText: "Search exams...",
                   border: InputBorder.none,
-                  icon: Icon(Icons.search),
+                  icon: const Icon(Icons.search),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  )
+                      : null,
                 ),
               ),
             ),
             const SizedBox(height: 12),
-
-            /// Exams List
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
                     .doc(userId)
                     .collection('classes')
-                    .doc(classId)
+                    .doc(widget.classId)
                     .collection('exams')
                     .orderBy('section')
                     .snapshots(),
@@ -108,35 +121,46 @@ class ExamListScreen extends StatelessWidget {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final docs = snapshot.data!.docs;
+                  // ⬇️ UPDATE: Filtering logic added here
+                  final allDocs = snapshot.data!.docs;
+                  final filteredDocs = allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final examTitle = (data['title'] ?? '').toLowerCase();
+                    return examTitle.contains(_searchQuery);
+                  }).toList();
 
-                  if (docs.isEmpty) {
+                  if (filteredDocs.isEmpty) {
+                    if (_searchQuery.isNotEmpty) {
+                      return const Center(child: Text("No matching exams found."));
+                    }
                     return const Center(child: Text("No exams yet."));
                   }
 
+                  // Build the ListView with the filtered list
                   return ListView.builder(
-                    itemCount: docs.length,
+                    itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {
-                      final doc = docs[index]; // ✅ Define doc here
+                      final doc = filteredDocs[index];
                       final exam = doc.data() as Map<String, dynamic>;
 
                       return ExamCard(
-                        examId: doc.id, // ✅ Now doc is defined
+                        examId: doc.id,
                         userId: userId,
-                        classId: classId,
+                        classId: widget.classId,
                         title: exam['title'],
-                        min: exam['min'],
-                        max: exam['max'],
-                        avg: (exam['avg'] as num).toDouble(),
+                        min: (exam['min'] as num? ?? 0.0).toDouble(),
+                        max: (exam['max'] as num? ?? 0.0).toDouble(),
+                        avg: (exam['avg'] as num? ?? 0.0).toDouble(),
+                        scaleMaxGrade: (exam['scaleMaxGrade'] as num? ?? 0).toDouble(),
                         section: exam['section'] ?? 0,
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => QuestionsScreen(
-                                className: className,
+                                className: widget.className,
                                 examTitle: exam['title'],
-                                classId: classId,
+                                classId: widget.classId,
                                 examId: doc.id,
                               ),
                             ),

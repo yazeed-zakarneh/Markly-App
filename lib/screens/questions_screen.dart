@@ -23,31 +23,15 @@ class QuestionsScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         backgroundColor: Colors.white,
-        drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+        endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
-          automaticallyImplyLeading: false,
-          title: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const Spacer(),
-              Image.asset(
-                'assets/images/logo_text.png', // Make sure this asset is correctly added
-                height: 40,
-              ),
-              const Spacer(),
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-            ],
+          title: Image.asset(
+            'assets/images/logo_text.png', // Make sure this asset is correctly added
+            height: 40,
           ),
+          centerTitle: true,
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(96),
             child: Column(
@@ -57,7 +41,7 @@ class QuestionsScreen extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Text(
-                    '$className > $examTitle',
+                    '$className - $examTitle',
                     style: const TextStyle(
                       color: Color(0xFF1A237E),
                       fontWeight: FontWeight.bold,
@@ -73,8 +57,14 @@ class QuestionsScreen extends StatelessWidget {
                   unselectedLabelColor: Colors.grey,
                   labelStyle: TextStyle(fontWeight: FontWeight.bold),
                   tabs: [
-                    Tab(text: 'Questions'),
-                    Tab(text: 'Students'),
+                    Tab(
+                      icon: Icon(Icons.help),
+                        text: 'Questions'
+                    ),
+                    Tab(
+                      icon: Icon(Icons.people_alt_rounded),
+                        text: 'Students'
+                    ),
                   ],
                 ),
               ],
@@ -85,7 +75,8 @@ class QuestionsScreen extends StatelessWidget {
           children: [
             QuestionsTab(classId: classId, examId: examId, className: className,
               examTitle: examTitle,),
-            StudentsTab(classId: classId, examId: examId),
+            StudentsTab(classId: classId, examId: examId, className: className,
+                examTitle: examTitle),
           ],
         ),
       ),

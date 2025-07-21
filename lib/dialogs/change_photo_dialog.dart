@@ -70,7 +70,7 @@ class _ChangePhotoDialogState extends State<ChangePhotoDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Change Course Photo", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Change Course Photo", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
             const SizedBox(height: 16),
             GestureDetector(
               onTap: pickImage,
@@ -79,7 +79,7 @@ class _ChangePhotoDialogState extends State<ChangePhotoDialog> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: Color(0xFF1A237E)),
                 ),
                 child: selectedImage != null
                     ? ClipRRect(
@@ -91,7 +91,7 @@ class _ChangePhotoDialogState extends State<ChangePhotoDialog> {
                   children: const [
                     Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.blue),
                     SizedBox(height: 8),
-                    Text('Tap to select image'),
+                    Text('Tap to select image', style: TextStyle(color: Color(0xFF1A237E))),
                     Text('Supports .jpg/.png', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
@@ -102,15 +102,23 @@ class _ChangePhotoDialogState extends State<ChangePhotoDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                    side: BorderSide(color: Color(0xFF1A237E)),
+                  ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
+                  child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Color(0xFF1A237E),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                  ),
                   onPressed: isLoading ? null : saveImage,
                   child: isLoading
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text("Save"),
+                      : const Text("Save",style: TextStyle(color: Colors.white)),
                 ),
               ],
             ),

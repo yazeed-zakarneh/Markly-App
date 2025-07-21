@@ -7,7 +7,7 @@ class QuestionDetailScreen extends StatefulWidget {
   final String classId;
   final String examId;
   final String questionId;
-  final String questionName; // This is now the simple name like "Q1"
+  final String questionName;
   final String className;
   final String examTitle;
 
@@ -26,7 +26,6 @@ class QuestionDetailScreen extends StatefulWidget {
 }
 
 class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
-  // New controllers for clarity
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
   final TextEditingController _gradeController = TextEditingController();
@@ -47,7 +46,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     super.dispose();
   }
 
-  /// Loads the full question, answer, and grade from Firestore.
   Future<void> _loadInitialData() async {
     try {
       final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -58,10 +56,9 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
 
       if (docSnapshot.exists && mounted) {
         final data = docSnapshot.data();
-        // Load data from the correct fields
         _questionController.text = data?['fullQuestion'] ?? 'Question not found.';
-        _answerController.text = data?['text1'] ?? ''; // text1 is the answer
-        _gradeController.text = data?['text2'] ?? ''; // text2 is the grade
+        _answerController.text = data?['text1'] ?? '';
+        _gradeController.text = data?['text2'] ?? '';
       }
     } catch (e) {
       if (mounted) {
@@ -76,7 +73,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
     }
   }
 
-  /// Saves only the editable fields: answer and grade.
   Future<void> _saveData() async {
     setState(() => _isSaving = true);
     final userId = FirebaseAuth.instance.currentUser!.uid;
@@ -85,7 +81,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
           .collection('users').doc(userId).collection('classes')
           .doc(widget.classId).collection('exams').doc(widget.examId)
           .collection('questions').doc(widget.questionId).update({
-        // Only save the fields that can be changed on this screen
         'text1': _answerController.text,
         'text2': _gradeController.text,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -111,29 +106,12 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const Spacer(),
-            Image.asset('assets/images/logo_text.png', height: 40),
-            const Spacer(),
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-          ],
-        ),
-        // The AppBar now shows the simple question name like "Q1"
+        title: Image.asset('assets/images/logo_text.png', height: 40),
+        centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Padding(
@@ -141,7 +119,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '${widget.className} > ${widget.examTitle} > ${widget.questionName}',
+                '${widget.className} - ${widget.examTitle} - ${widget.questionName}',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1A237E),
@@ -160,8 +138,6 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- NEW UI STRUCTURE ---
-            // Read-only text field for the full question.
             TextField(
               controller: _questionController,
               readOnly: true,
@@ -176,9 +152,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Editable text field for the student's answer.
             TextField(
-              readOnly: true,
               controller: _answerController,
               decoration: const InputDecoration(
                 labelText: "Key Answer",
@@ -188,13 +162,13 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Editable text field for your grade or notes.
             TextField(
               controller: _gradeController,
               decoration: const InputDecoration(
-                labelText: 'Grade / Notes',
+                labelText: 'Max Grade for this Question',
                 border: OutlineInputBorder(),
               ),
+              keyboardType: TextInputType.number,
               maxLines: null,
             ),
             const SizedBox(height: 24),
@@ -204,10 +178,8 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
                 onPressed: _isSaving ? null : _saveData,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A237E),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 32, vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isSaving
                     ? const SizedBox(

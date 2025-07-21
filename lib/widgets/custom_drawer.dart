@@ -49,10 +49,10 @@ class CustomDrawer extends StatelessWidget {
             ),
             _DrawerItem(
               icon: Icons.person_outline,
-              text: 'My Account',
+              text: 'My Profile',
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 );
@@ -63,7 +63,7 @@ class CustomDrawer extends StatelessWidget {
               text: 'About Us',
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
+                Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(builder: (_) => const AboutUsScreen()),
                 );

@@ -62,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   const Text(
                     "Update Profile",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E)),
                   ),
                   const SizedBox(height: 16),
                   GestureDetector(
@@ -100,11 +100,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                            side: BorderSide(color: Color(0xFF1A237E)),
+                          ),
                           onPressed: () => Navigator.pop(context),
-                          child: const Text("Cancel"),
+                          child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xFF1A237E),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                          ),
                           onPressed: () async {
                             setDialogState(() => isLoading = true);
                             try {
@@ -159,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               setDialogState(() => isLoading = false);
                             }
                           },
-                          child: const Text("Save"),
+                          child: const Text("Save",style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -182,38 +190,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       // Add the CustomDrawer to the Scaffold
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)), // Assuming CustomDrawer is imported
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)), // Assuming CustomDrawer is imported
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1A237E)),
-              onPressed: () => Navigator.pop(context),
-            ),
-            const Spacer(),
-            const Text(
-              'Profile',
-              style: TextStyle(
-                fontSize: 18,
-                color: Color(0xFF1A237E),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const Spacer(),
-            // This Builder is correctly providing the context for Scaffold.of
-            Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                onPressed: () {
-                  Scaffold.of(context).openDrawer(); // UNCOMMENTED THIS LINE
-                },
-              ),
-            ),
-          ],
+        title: Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 18,
+            color: Color(0xFF1A237E),
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Padding(

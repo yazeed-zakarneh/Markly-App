@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,8 +7,25 @@ import '../dialogs/change_photo_dialog.dart';
 import 'exam_list_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-class HomeScreen extends StatelessWidget {
+// ⬇️ UPDATE: Converted to a StatefulWidget
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // ⬇️ UPDATE: Added state for the search query and controller
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    // Clean up the controller when the widget is removed
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,26 +33,21 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: CustomDrawer(onClose: () => Navigator.pop(context)),
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Stack(
-          alignment: Alignment.center,
-          children: [
-            Center(child: Image.asset('assets/images/logo_text.png', height: 40)),
-            Positioned(
-              right: 0,
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
+        title: Image.asset('assets/images/logo_text.png', height: 35),
+        centerTitle: true,
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Color(0xFF1A237E)),
+              onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -51,24 +64,40 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// Search
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(30),
               ),
-              child: const TextField(
+              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase();
+                  });
+                },
                 decoration: InputDecoration(
-                  hintText: 'Search',
+                  hintText: 'Search courses...',
                   border: InputBorder.none,
-                  icon: Icon(Icons.search),
+                  icon: const Icon(Icons.search),
+                  // Add a clear button to the search bar
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        _searchQuery = '';
+                      });
+                    },
+                  )
+                      : null,
                 ),
               ),
             ),
             const SizedBox(height: 20),
-
-            /// Class List
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
@@ -81,20 +110,31 @@ class HomeScreen extends StatelessWidget {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return const Center(child: Text('No courses yet.'));
                   }
 
+                  // ⬇️ UPDATE: Filtering logic added here
+                  final allDocs = snapshot.data!.docs;
+                  final filteredDocs = allDocs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final className = (data['name'] ?? '').toLowerCase();
+                    return className.contains(_searchQuery);
+                  }).toList();
+
+                  if (filteredDocs.isEmpty) {
+                    return const Center(child: Text('No matching courses found.'));
+                  }
+
+                  // Build the ListView with the filtered list
                   return ListView(
-                    children: snapshot.data!.docs.map((doc) {
+                    children: filteredDocs.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;
                       final classId = doc.id;
                       final className = data['name'] ?? 'Unnamed Course';
                       final imageUrl = data['imageUrl'] == 'default'
                           ? 'assets/images/logo.png'
                           : data['imageUrl'];
-
                       return SubjectCard(
                         title: className,
                         imagePath: imageUrl,
@@ -124,7 +164,8 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class SubjectCard extends StatelessWidget {
+
+class SubjectCard extends StatefulWidget {
   final String title;
   final String imagePath;
   final String classId;
@@ -140,20 +181,33 @@ class SubjectCard extends StatelessWidget {
     required this.onTap,
   });
 
+  @override
+  State<SubjectCard> createState() => _SubjectCardState();
+}
+
+class _SubjectCardState extends State<SubjectCard> {
   void _showDeleteDialog(BuildContext context) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Delete Course'),
-        content: const Text('Are you sure you want to delete this course?'),
+        title: const Text('Delete Course', style: TextStyle(color: Color(0xFF1A237E)),),
+        content: const Text("Are you sure you want to delete this course? You won't be able to restore it!", style: TextStyle(color: Colors.red,),),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              side: const BorderSide(color: Color(0xFF1A237E)),
+            ),
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)),),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -162,9 +216,9 @@ class SubjectCard extends StatelessWidget {
     if (shouldDelete == true) {
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(userId)
+          .doc(widget.userId)
           .collection('classes')
-          .doc(classId)
+          .doc(widget.classId)
           .delete();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -174,35 +228,43 @@ class SubjectCard extends StatelessWidget {
   }
 
   void _showRenameDialog(BuildContext context) {
-    final controller = TextEditingController(text: title);
+    final controller = TextEditingController(text: widget.title);
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Rename Course"),
+        title: const Text("Rename Course", style: TextStyle(color: Color(0xFF1A237E))),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(labelText: "New course Name"),
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              side: const BorderSide(color: Color(0xFF1A237E)),
+            ),
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A237E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            ),
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
                 await FirebaseFirestore.instance
                     .collection('users')
-                    .doc(userId)
+                    .doc(widget.userId)
                     .collection('classes')
-                    .doc(classId)
+                    .doc(widget.classId)
                     .update({'name': newName});
               }
               Navigator.pop(context);
             },
-            child: const Text("Save"),
+            child: const Text("Save",style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -213,18 +275,18 @@ class SubjectCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => ChangePhotoDialog(
-        userId: userId,
-        classId: classId,
+        userId: widget.userId,
+        classId: widget.classId,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isNetworkImage = imagePath.startsWith('http');
+    final bool isNetworkImage = widget.imagePath.startsWith('http');
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -232,33 +294,42 @@ class SubjectCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// Image
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: isNetworkImage
-                  ? Image.network(imagePath, fit: BoxFit.cover, height: 160, width: double.infinity)
-                  : Image.asset(imagePath, fit: BoxFit.cover, height: 160, width: double.infinity),
+                  ? Image.network(widget.imagePath, fit: BoxFit.cover, height: 160, width: double.infinity)
+                  : Image.asset(widget.imagePath, fit: BoxFit.cover, height: 160, width: double.infinity),
             ),
-
-            /// Title + 3-dot button
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  /// Title
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        const Text("Exams: #", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('users').doc(widget.userId)
+                              .collection('classes').doc(widget.classId)
+                              .collection('exams').snapshots(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Text("Exams: ...", style: TextStyle(color: Colors.grey, fontSize: 14));
+                            }
+                            final examCount = snapshot.data?.docs.length ?? 0;
+                            return Text(
+                              "Exams: $examCount",
+                              style: const TextStyle(color: Colors.grey, fontSize: 14),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
-
-                  /// Menu Button
                   PopupMenuButton<String>(
                     icon: const Icon(Icons.more_vert),
                     onSelected: (value) {

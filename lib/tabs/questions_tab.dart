@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import '../screens/question_detail_screen.dart';
-import '../models/ocr_model.dart'; // Make sure this path is correct
+import '../models/ocr_model.dart';
 
 class QuestionsTab extends StatefulWidget {
   final String classId;
@@ -30,7 +30,8 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
   void _showAddQuestionsFromImageDialog() {
     bool isLoading = false;
-    String statusMessage = 'Upload an exam sheet to extract questions.';
+    String statusMessage = 'Upload a questions sheet with key answers.';
+    bool isMultipleChoice = false;
 
     showDialog(
       context: context,
@@ -38,7 +39,6 @@ class _QuestionsTabState extends State<QuestionsTab> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-
             Future<void> processImage() async {
               final picker = ImagePicker();
               final picked = await picker.pickImage(
@@ -54,34 +54,44 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
               try {
                 final rawText = await _ocrService.performOcr(File(picked.path));
-                if (rawText == null || rawText.isEmpty) {
-                  throw Exception("OCR could not extract any text.");
+                if (rawText == null || rawText.isEmpty) throw Exception("OCR could not extract any text.");
+
+                List<ParsedQuestion> questionsToCreate;
+
+                if (isMultipleChoice) {
+                  setDialogState(() => statusMessage = 'Processing multiple-choice answers...');
+
+                  // --- ADDED: Print raw text before local cleanup ---
+                  print("--- [Question Key] Raw MCQ Text (Before Cleanup) ---\n$rawText\n------------------------------------------------------");
+                  final cleanedMcqString = _ocrService.processRawMultipleChoiceText(rawText);
+
+                  // --- ADDED: Print cleaned text after local cleanup ---
+                  print("--- [Question Key] Cleaned MCQ Text (After Cleanup) ---\n$cleanedMcqString\n-----------------------------------------------------");
+
+                  if (cleanedMcqString.isEmpty) {
+                    throw Exception("No multiple-choice answers could be processed.");
+                  }
+                  questionsToCreate = [
+                    ParsedQuestion(question: "Multiple Choice Question", answer: cleanedMcqString)
+                  ];
+                } else {
+                  setDialogState(() => statusMessage = 'Enhancing extracted text...');
+                  print("--- [Question Key] Raw Text (Before API) ---\n$rawText\n--------------------------------------------");
+                  final enhancedText = await _ocrService.enhanceOcrText(rawText);
+                  print("--- [Question Key] Enhanced Text (After API) ---\n$enhancedText\n----------------------------------------------");
+                  questionsToCreate = _ocrService.extractQuestionsFromText(enhancedText);
                 }
 
-                final questionsToCreate = _ocrService.extractQuestionsFromText(rawText);
-                if (questionsToCreate.isEmpty) {
-                  throw Exception("No valid questions found in the format 'Q#) ... ?'");
-                }
+                if (questionsToCreate.isEmpty) throw Exception("No valid questions found.");
 
-                setDialogState(() {
-                  statusMessage = 'Found ${questionsToCreate.length} questions. Saving...';
-                });
-
-                final questionsCollection = FirebaseFirestore.instance
-                    .collection('users').doc(userId).collection('classes')
-                    .doc(widget.classId).collection('exams').doc(widget.examId)
-                    .collection('questions');
-
-                // Fetch the current number of questions to determine the starting index.
+                setDialogState(() => statusMessage = 'Found ${questionsToCreate.length} questions. Saving...');
+                final questionsCollection = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions');
                 final existingDocsSnapshot = await questionsCollection.get();
                 final existingQuestionCount = existingDocsSnapshot.size;
-
                 final batch = FirebaseFirestore.instance.batch();
 
                 for (int i = 0; i < questionsToCreate.length; i++) {
                   final pq = questionsToCreate[i];
-
-                  // Calculate the new number based on how many questions already exist.
                   final newQuestionNumber = existingQuestionCount + i + 1;
                   final simpleName = 'Q$newQuestionNumber';
 
@@ -92,17 +102,14 @@ class _QuestionsTabState extends State<QuestionsTab> {
                     'text1': pq.answer,
                     'text2': '',
                     'questionNumber': newQuestionNumber,
+                    'isMultipleChoice': isMultipleChoice,
                     'createdAt': FieldValue.serverTimestamp(),
                   });
                 }
 
                 await batch.commit();
-
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Successfully added ${questionsToCreate.length} questions!')),
-                );
-
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Successfully added ${questionsToCreate.length} questions!')));
               } catch (e) {
                 setDialogState(() {
                   isLoading = false;
@@ -112,11 +119,23 @@ class _QuestionsTabState extends State<QuestionsTab> {
             }
 
             return AlertDialog(
-              title: const Text("Add Questions from Image"),
+              title: const Text("Add Questions from Image", style: TextStyle(color: Color(0xFF1A237E)),),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(statusMessage, textAlign: TextAlign.center),
+                  if (!isLoading)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0),
+                      child: CheckboxListTile(
+                        title: const Text("Multiple choice question", style: TextStyle(fontSize: 14),),
+                        value: isMultipleChoice,
+                        onChanged: (bool? value) => setDialogState(() => isMultipleChoice = value ?? false),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        activeColor: const Color(0xFF1A237E),
+                      ),
+                    ),
                   if (isLoading)
                     const Padding(
                       padding: EdgeInsets.only(top: 20),
@@ -125,14 +144,22 @@ class _QuestionsTabState extends State<QuestionsTab> {
                 ],
               ),
               actions: [
-                TextButton(
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                    side: const BorderSide(color: Color(0xFF1A237E)),
+                  ),
                   onPressed: isLoading ? null : () => Navigator.pop(context),
-                  child: const Text("Cancel"),
+                  child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                 ),
                 ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A237E),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                  ),
                   onPressed: isLoading ? null : processImage,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Upload"),
+                  icon: const Icon(Icons.upload_file, color: Colors.white,),
+                  label: const Text("Upload", style: TextStyle(color: Colors.white),),
                 ),
               ],
             );
@@ -144,64 +171,40 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
   @override
   Widget build(BuildContext context) {
-    // This query correctly sorts all questions, new and old, by their number.
-    final questionsRef = FirebaseFirestore.instance
-        .collection('users').doc(userId).collection('classes')
-        .doc(widget.classId).collection('exams').doc(widget.examId)
-        .collection('questions').orderBy('questionNumber', descending: false);
+    final questionsRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber', descending: false);
 
     return Stack(
       children: [
         StreamBuilder<QuerySnapshot>(
           stream: questionsRef.snapshots(),
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
+            if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+            if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
             final questions = snapshot.data?.docs ?? [];
-
             if (questions.isEmpty) {
               return const Center(
-                child: Text(
-                  'No questions yet. Tap the + button to add.',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('No questions yet. Tap the button below to add from an image.', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)),
                 ),
               );
             }
-
             return ListView.builder(
               padding: const EdgeInsets.all(16.0).copyWith(bottom: 80),
               itemCount: questions.length,
               itemBuilder: (context, index) {
                 final data = questions[index].data() as Map<String, dynamic>;
                 final questionText = data['name'] ?? 'Unnamed Question';
-
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     leading: const Icon(Icons.help_outline, color: Color(0xFF1A237E)),
-                    title: Text(
-                      questionText,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                    title: Text(questionText, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     tileColor: const Color(0xFFF5F5F5),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => QuestionDetailScreen(
-                            classId: widget.classId,
-                            examId: widget.examId,
-                            questionId: questions[index].id,
-                            questionName: questionText,
-                            className: widget.className,
-                            examTitle: widget.examTitle,
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => QuestionDetailScreen(classId: widget.classId, examId: widget.examId, questionId: questions[index].id, questionName: questionText, className: widget.className, examTitle: widget.examTitle),
+                    )),
                   ),
                 );
               },
@@ -214,7 +217,8 @@ class _QuestionsTabState extends State<QuestionsTab> {
           child: FloatingActionButton(
             onPressed: _showAddQuestionsFromImageDialog,
             backgroundColor: const Color(0xFF1A237E),
-            child: const Icon(Icons.add_a_photo_outlined),
+            tooltip: 'Add Questions from Image',
+            child: const Icon(Icons.add_a_photo_outlined, color: Colors.white),
           ),
         ),
       ],

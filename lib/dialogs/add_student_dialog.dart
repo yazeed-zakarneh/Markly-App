@@ -1,3 +1,5 @@
+// lib/dialogs/add_student_dialog.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/student_model.dart';
@@ -6,12 +8,14 @@ class AddStudentDialog extends StatefulWidget {
   final String userId;
   final String classId;
   final String examId;
+  final Student? existingStudent; // This is the new optional parameter
 
   const AddStudentDialog({
     super.key,
     required this.userId,
     required this.classId,
     required this.examId,
+    this.existingStudent, // Make it optional
   });
 
   @override
@@ -24,6 +28,19 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   final _studentIdController = TextEditingController();
   bool _isSaving = false;
 
+  // Helper to check if we are editing
+  bool get _isEditing => widget.existingStudent != null;
+
+  @override
+  void initState() {
+    super.initState();
+    // If we are editing, pre-fill the text fields with the student's data
+    if (_isEditing) {
+      _nameController.text = widget.existingStudent!.name;
+      _studentIdController.text = widget.existingStudent!.studentId;
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -31,44 +48,43 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
     super.dispose();
   }
 
-  Future<void> _addStudent() async {
+  Future<void> _saveStudent() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    setState(() {
-      _isSaving = true;
-    });
+    setState(() => _isSaving = true);
 
     try {
-      final student = Student(
-        id: '', // Firestore generates the ID
-        name: _nameController.text.trim(),
-        studentId: _studentIdController.text.trim(),
-      );
+      final collectionRef = FirebaseFirestore.instance
+          .collection('users').doc(widget.userId)
+          .collection('classes').doc(widget.classId)
+          .collection('exams').doc(widget.examId)
+          .collection('students');
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.userId)
-          .collection('classes')
-          .doc(widget.classId)
-          .collection('exams')
-          .doc(widget.examId)
-          .collection('students')
-          .add(student.toMap());
+      final studentData = {
+        'name': _nameController.text.trim(),
+        'studentId': _studentIdController.text.trim(),
+      };
 
-      if (mounted) {
-        Navigator.of(context).pop();
+      if (_isEditing) {
+        // If editing, UPDATE the existing document
+        await collectionRef.doc(widget.existingStudent!.id).update(studentData);
+      } else {
+        // If adding, ADD a new document
+        await collectionRef.add(studentData);
       }
+
+      if (mounted) Navigator.of(context).pop();
+
     } catch (e) {
-      setState(() {
-        _isSaving = false;
-      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add student: $e')),
+          SnackBar(content: Text('Failed to save student: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -76,7 +92,10 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text("Add Student"),
+      title: Text(
+        _isEditing ? "Edit Student" : "Add Student",
+        style: const TextStyle(color: Color(0xFF1A237E)),
+      ),
       content: Form(
         key: _formKey,
         child: Column(
@@ -86,7 +105,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
               controller: _nameController,
               decoration: const InputDecoration(
                 labelText: 'Student Name',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -100,7 +120,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
               controller: _studentIdController,
               decoration: const InputDecoration(
                 labelText: 'Student ID',
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -113,24 +134,27 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+            side: const BorderSide(color: Color(0xFF1A237E)),
+          ),
           onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E))),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A237E),
-            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
           ),
-          onPressed: _isSaving ? null : _addStudent,
+          onPressed: _isSaving ? null : _saveStudent,
           child: _isSaving
               ? const SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(
-                strokeWidth: 2, color: Colors.white),
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
           )
-              : const Text('Add'),
+              : const Text('Save', style: TextStyle(color: Colors.white)),
         ),
       ],
     );

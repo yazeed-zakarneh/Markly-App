@@ -75,7 +75,7 @@ class _AddClassDialogState extends State<AddClassDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text("Add Course", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Add Course", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
             const SizedBox(height: 16),
 
             TextField(
@@ -95,7 +95,7 @@ class _AddClassDialogState extends State<AddClassDialog> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: Color(0xFF1A237E)),
                 ),
                 child: selectedImage != null
                     ? ClipRRect(
@@ -107,7 +107,7 @@ class _AddClassDialogState extends State<AddClassDialog> {
                   children: const [
                     Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.blue),
                     SizedBox(height: 8),
-                    Text('Tap to select image'),
+                    Text('Tap to select image', style: TextStyle(color: Color(0xFF1A237E))),
                     Text('Supports .jpg/.png', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
@@ -119,17 +119,23 @@ class _AddClassDialogState extends State<AddClassDialog> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 OutlinedButton(
-
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                    side: BorderSide(color: Color(0xFF1A237E)),
+                  ),
                   onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel", ),
+                  child: const Text("Cancel", style: TextStyle(color: Color(0xFF1A237E))),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A237E),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                  ),
                   onPressed: isLoading ? null : saveClass,
                   child: isLoading
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text("Save",),
+                      : const Text("Save",style: TextStyle(color: Colors.white)),
                 ),
                 
               ],
