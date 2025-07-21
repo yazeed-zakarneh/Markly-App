@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:excel/excel.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../dialogs/add_student_dialog.dart';
 import '../models/student_model.dart';
 import '../screens/student_screen.dart';
@@ -22,7 +26,15 @@ class _StudentScoreData {
 class StudentsTab extends StatefulWidget {
   final String classId;
   final String examId;
-  const StudentsTab({super.key, required this.classId, required this.examId});
+  final String className;
+  final String examTitle;
+  const StudentsTab({
+    super.key,
+    required this.classId,
+    required this.examId,
+    required this.className,
+    required this.examTitle,
+  });
 
   @override
   State<StudentsTab> createState() => _StudentsTabState();
@@ -34,6 +46,9 @@ class _StudentsTabState extends State<StudentsTab> {
   final String userId = FirebaseAuth.instance.currentUser!.uid;
   final GradingService _gradingService = GradingService();
   bool _isGrading = false;
+  bool _isMenuOpen = false;
+  // --- New state for export process ---
+  bool _isExporting = false;
 
   @override
   void dispose() {
@@ -41,20 +56,12 @@ class _StudentsTabState extends State<StudentsTab> {
     super.dispose();
   }
 
-  // This is the new, unified function for calculating all scores based on question weights.
   Future<List<_StudentScoreData>> _calculateAllStudentScores() async {
-    final examDoc = await FirebaseFirestore.instance
-        .collection('users').doc(userId)
-        .collection('classes').doc(widget.classId)
-        .collection('exams').doc(widget.examId)
-        .get();
+    final examDoc = await FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).get();
     if (!examDoc.exists) throw Exception("Exam document not found!");
-
     final double examMaxGradeForScaling = (examDoc.data()!['scaleMaxGrade'] as num).toDouble();
     final questionDocs = (await examDoc.reference.collection('questions').orderBy('questionNumber').get()).docs;
     final studentDocs = (await examDoc.reference.collection('students').orderBy('name').get()).docs;
-
-    // Step 1: Get the "weight" (max grade) of each question.
     final Map<int, double> questionNumberToMaxGradeMap = {};
     double totalExamWeight = 0.0;
     for (final doc in questionDocs) {
@@ -62,38 +69,22 @@ class _StudentsTabState extends State<StudentsTab> {
       final int qNum = data['questionNumber'];
       final double grade = double.tryParse(data['text2'] ?? '0.0') ?? 0.0;
       questionNumberToMaxGradeMap[qNum] = grade;
-      totalExamWeight += grade; // This is the sum of all question max grades.
+      totalExamWeight += grade;
     }
-
     final List<_StudentScoreData> results = [];
     for (final studentDoc in studentDocs) {
       final answerDocs = (await studentDoc.reference.collection('answers').get()).docs;
-
-      // Step 2: Calculate the student's total score based on the question weights.
       double studentTotalWeightedScore = 0.0;
       for (final answerDoc in answerDocs) {
         final answerData = answerDoc.data();
-        final baseMark = (answerData['mark'] as num?)?.toDouble() ?? 0.0; // AI's score out of 10
+        final baseMark = (answerData['mark'] as num?)?.toDouble() ?? 0.0;
         final qNum = answerData['questionNumber'] as int;
-
-        // Find the weight of the current question
         final double questionMaxGrade = questionNumberToMaxGradeMap[qNum] ?? 0.0;
-
-        // Convert the 0-10 mark to a score relative to the question's weight
         final double weightedMarkForQuestion = (baseMark / 10.0) * questionMaxGrade;
         studentTotalWeightedScore += weightedMarkForQuestion;
       }
-
-      // Step 3: Scale the student's weighted total score to the final exam grade.
-      final double finalScaledMark = (totalExamWeight > 0)
-          ? (studentTotalWeightedScore / totalExamWeight) * examMaxGradeForScaling
-          : 0.0;
-
-      results.add(_StudentScoreData(
-        student: Student.fromMap(studentDoc.data(), studentDoc.id),
-        finalScaledMark: finalScaledMark,
-        examMaxGrade: examMaxGradeForScaling,
-      ));
+      final double finalScaledMark = (totalExamWeight > 0) ? (studentTotalWeightedScore / totalExamWeight) * examMaxGradeForScaling : 0.0;
+      results.add(_StudentScoreData(student: Student.fromMap(studentDoc.data(), studentDoc.id), finalScaledMark: finalScaledMark, examMaxGrade: examMaxGradeForScaling));
     }
     return results;
   }
@@ -103,13 +94,10 @@ class _StudentsTabState extends State<StudentsTab> {
     showDialog(context: context, barrierDismissible: false, builder: (_) => const AlertDialog(
         content: Row(children: [CircularProgressIndicator(), SizedBox(width: 20), Text("Grading & calculating...")]))
     );
-
     try {
-      // Part 1: Grade all answers and save the base 0-10 marks. This is unchanged.
       final examRef = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId);
       final questionDocs = (await examRef.collection('questions').orderBy('questionNumber').get()).docs;
       final studentDocs = (await examRef.collection('students').get()).docs;
-
       if (questionDocs.isEmpty || studentDocs.isEmpty) throw Exception("Missing questions or students to grade.");
 
       final batch = FirebaseFirestore.instance.batch();
@@ -134,7 +122,6 @@ class _StudentsTabState extends State<StudentsTab> {
       }
       await batch.commit();
 
-      // Part 2: Use the new unified function to calculate min/max/avg.
       final List<_StudentScoreData> finalScoresData = await _calculateAllStudentScores();
       if (finalScoresData.isNotEmpty) {
         final List<double> finalScores = finalScoresData.map((data) => data.finalScaledMark).toList();
@@ -143,11 +130,9 @@ class _StudentsTabState extends State<StudentsTab> {
         final double avgScore = finalScores.reduce((a, b) => a + b) / finalScores.length;
         await examRef.update({'min': minScore, 'max': maxScore, 'avg': avgScore});
       }
-
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading and calculations complete!')));
       setState(() {});
-
     } catch (e) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('A critical error occurred: $e'), backgroundColor: Colors.red));
@@ -156,13 +141,59 @@ class _StudentsTabState extends State<StudentsTab> {
     }
   }
 
-  // This function is now just a wrapper for the new calculation method.
-  Future<List<_StudentScoreData>> _calculateDisplayScores() async {
+  Future<List<_StudentScoreData>> _calculateDisplayScores() {
     return _calculateAllStudentScores();
   }
 
-  // All other methods (_deleteStudent, _editStudent, etc.) remain unchanged.
-  // ...
+  void _onAddButtonPressed() {
+    setState(() => _isMenuOpen = false);
+    showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId)).then((_) => setState(() {}));
+  }
+
+  // --- New Export Function ---
+  Future<void> _exportToExcel() async {
+    if (_isExporting || _isGrading) return;
+    setState(() { _isExporting = true; _isMenuOpen = false; });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating Excel sheet...')));
+    try {
+      final studentScores = await _calculateAllStudentScores();
+      if (studentScores.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No student data to export.')));
+        return;
+      }
+      final excel = Excel.createExcel();
+      final String defaultSheetName = excel.sheets.keys.first;
+      final Sheet sheetObject = excel[defaultSheetName];
+      final headerRow = [ TextCellValue('Name'), TextCellValue('ID'),  TextCellValue('Mark')];
+      sheetObject.appendRow(headerRow);
+      for (final scoreData in studentScores) {
+        final studentRow = [
+          TextCellValue(scoreData.student.name),
+          TextCellValue(scoreData.student.studentId),
+          DoubleCellValue(double.parse(scoreData.finalScaledMark.toStringAsFixed(2))),
+        ];
+        sheetObject.appendRow(studentRow);
+      }
+      final directory = await getTemporaryDirectory();
+      final sanitizedExamName = widget.examTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final sanitizedClassName = widget.className.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final fileName = '$sanitizedExamName - $sanitizedClassName.xlsx';
+      final path = '${directory.path}/$fileName';
+      final fileBytes = excel.save();
+      if (fileBytes != null) {
+        final file = File(path)..writeAsBytesSync(fileBytes);
+        await Share.shareXFiles([XFile(file.path)], text: 'Here are the exam grades.');
+      } else {
+        throw Exception("Failed to save Excel data.");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error exporting data: $e'), backgroundColor: Colors.red));
+    } finally {
+      setState(() => _isExporting = false);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+  }
+
   Future<void> _deleteStudent(String studentId) async {
     final shouldDelete = await showDialog<bool>(
       context: context,
@@ -196,8 +227,10 @@ class _StudentsTabState extends State<StudentsTab> {
           .doc(widget.classId).collection('exams').doc(widget.examId)
           .collection('students').doc(studentId).delete();
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted.')));
-      setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted.')));
+        setState(() {});
+      }
     }
   }
 
@@ -211,7 +244,9 @@ class _StudentsTabState extends State<StudentsTab> {
         existingStudent: student,
       ),
     );
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _showStudentContextMenu(BuildContext context, Offset position, Student student) async {
@@ -237,134 +272,137 @@ class _StudentsTabState extends State<StudentsTab> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A237E),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-          ),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10)))),
           onPressed: _isGrading ? null : _gradeAllStudents,
           icon: Icon(Icons.check_circle_outline, color: _isGrading ? Colors.grey : Colors.white),
-          label: const Text("Start grading", style: TextStyle(color: Colors.white),),
+          label: const Text("Start grading", style: TextStyle(color: Colors.white)),
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF1A237E),
-        onPressed: () async {
-          await showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId));
-          setState(() {});
-        },
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                color: Colors.grey[200],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value.toLowerCase();
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: "Search students...",
-                  border: InputBorder.none,
-                  icon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() { _searchQuery = ''; });
-                    },
-                  )
-                      : null,
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), color: Colors.grey[200]),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
+                    decoration: InputDecoration(
+                      hintText: "Search students...",
+                      border: InputBorder.none,
+                      icon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      }) : null,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: FutureBuilder<List<_StudentScoreData>>(
-                future: _calculateDisplayScores(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('No students found.', style: TextStyle(fontSize: 16, color: Colors.grey)));
-
-                  final allStudentScores = snapshot.data!;
-                  final filteredStudentScores = allStudentScores.where((scoreData) {
-                    final studentName = scoreData.student.name.toLowerCase();
-                    final studentId = scoreData.student.studentId;
-                    return studentName.contains(_searchQuery) || studentId.contains(_searchQuery);
-                  }).toList();
-
-                  if (filteredStudentScores.isEmpty) {
-                    return const Center(child: Text("No matching students found."));
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 80),
-                    itemCount: filteredStudentScores.length,
-                    itemBuilder: (context, index) {
-                      final scoreData = filteredStudentScores[index];
-                      final student = scoreData.student;
-
-                      return GestureDetector(
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => StudentScreen(
-                              student: student,
-                              classId: widget.classId,
-                              examId: widget.examId,
-                            ))
-                        ).then((_) => setState(() {})),
-                        onLongPressStart: (details) {
-                          _showStudentContextMenu(context, details.globalPosition, student);
-                        },
-                        child: Card(
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
-                            title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('ID: ${student.studentId}'),
-                            trailing: Text(
-                              '${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}',
-                              style: const TextStyle(
-                                  color: Color(0xFF1A237E),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15
+                const SizedBox(height: 20),
+                Expanded(
+                  child: FutureBuilder<List<_StudentScoreData>>(
+                    future: _calculateDisplayScores(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                      if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+                      if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text('No students found.', style: TextStyle(fontSize: 16, color: Colors.grey)));
+                      final allStudentScores = snapshot.data!;
+                      final filteredStudentScores = allStudentScores.where((scoreData) {
+                        final studentName = scoreData.student.name.toLowerCase();
+                        final studentId = scoreData.student.studentId;
+                        return studentName.contains(_searchQuery) || studentId.contains(_searchQuery);
+                      }).toList();
+                      if (filteredStudentScores.isEmpty) return const Center(child: Text("No matching students found."));
+                      return ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 80),
+                        itemCount: filteredStudentScores.length,
+                        itemBuilder: (context, index) {
+                          final scoreData = filteredStudentScores[index];
+                          final student = scoreData.student;
+                          return GestureDetector(
+                            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StudentScreen(student: student, classId: widget.classId, examId: widget.examId))).then((_) => setState(() {})),
+                            onLongPressStart: (details) => _showStudentContextMenu(context, details.globalPosition, student),
+                            child: Card(
+                              elevation: 2,
+                              margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 0),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              child: ListTile(
+                                leading: CircleAvatar(backgroundColor: const Color(0xFF1A237E), child: Text(student.name.substring(0, 1), style: const TextStyle(color: Colors.white))),
+                                title: Text(student.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                subtitle: Text('ID: ${student.studentId}'),
+                                trailing: Text('${scoreData.finalScaledMark.toStringAsFixed(1)} / ${scoreData.examMaxGrade.toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFF1A237E), fontWeight: FontWeight.bold, fontSize: 15)),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: _buildFloatingMenu(),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFloatingMenu() {
+    final closedMenu = FloatingActionButton(
+      onPressed: () => setState(() => _isMenuOpen = true),
+      backgroundColor: const Color(0xFF1A237E),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      heroTag: 'menu_button',
+      child: const Icon(Icons.more_horiz, color: Colors.white),
+    );
+    final openMenu = Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(color: const Color(0xFF1A237E), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), spreadRadius: 2, blurRadius: 8)]),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Export Data',
+            // --- Logic connected here ---
+            onPressed: (_isGrading || _isExporting) ? null : _exportToExcel,
+            icon: const Icon(Icons.ios_share, color: Colors.white),
+          ),
+          IconButton(
+            tooltip: 'Add Student',
+            onPressed: _onAddButtonPressed,
+            icon: const Icon(Icons.add, color: Colors.white, size: 28),
+          ),
+          IconButton(
+            tooltip: 'Close Menu',
+            onPressed: () => setState(() => _isMenuOpen = false),
+            icon: const Icon(Icons.more_horiz, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      transitionBuilder: (Widget child, Animation<double> animation) => ScaleTransition(scale: animation, child: child),
+      child: _isMenuOpen ? openMenu : closedMenu,
     );
   }
 }

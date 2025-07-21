@@ -75,7 +75,8 @@ class QuestionsScreen extends StatelessWidget {
           children: [
             QuestionsTab(classId: classId, examId: examId, className: className,
               examTitle: examTitle,),
-            StudentsTab(classId: classId, examId: examId),
+            StudentsTab(classId: classId, examId: examId, className: className,
+                examTitle: examTitle),
           ],
         ),
       ),
