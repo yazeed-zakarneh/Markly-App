@@ -8,7 +8,7 @@ class GradingService {
     required String keyAnswer,
     required String studentAnswer,
   }) async {
-    final uri = Uri.parse('http://213.192.2.118:40140/grade');
+    final uri = Uri.parse('http://213.192.2.118:40141/grade');
 
     try {
       // Prepare the data for the request
