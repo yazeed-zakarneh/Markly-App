@@ -128,7 +128,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
                       child: CheckboxListTile(
-                        title: const Text("Multiple choice question"),
+                        title: const Text("Multiple choice question", style: TextStyle(fontSize: 14),),
                         value: isMultipleChoice,
                         onChanged: (bool? value) => setDialogState(() => isMultipleChoice = value ?? false),
                         controlAffinity: ListTileControlAffinity.leading,
