@@ -30,7 +30,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
   void _showAddQuestionsFromImageDialog() {
     bool isLoading = false;
-    String statusMessage = 'Upload an exam sheet to extract questions.';
+    String statusMessage = 'Upload a questions sheet with key answers.';
     bool isMultipleChoice = false;
 
     showDialog(
@@ -128,7 +128,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
                       child: CheckboxListTile(
-                        title: const Text("This is a multiple-choice exam"),
+                        title: const Text("Multiple choice question"),
                         value: isMultipleChoice,
                         onChanged: (bool? value) => setDialogState(() => isMultipleChoice = value ?? false),
                         controlAffinity: ListTileControlAffinity.leading,

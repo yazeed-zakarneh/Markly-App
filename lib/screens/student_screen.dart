@@ -155,7 +155,7 @@ class _StudentPageState extends State<StudentScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 16.0),
                       child: CheckboxListTile(
-                        title: const Text("This is a multiple-choice sheet"),
+                        title: const Text("Multiple choice question"),
                         value: isMultipleChoice,
                         onChanged: (bool? value) => setDialogState(() => isMultipleChoice = value ?? false),
                         controlAffinity: ListTileControlAffinity.leading,

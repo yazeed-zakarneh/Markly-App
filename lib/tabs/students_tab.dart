@@ -47,8 +47,18 @@ class _StudentsTabState extends State<StudentsTab> {
   final GradingService _gradingService = GradingService();
   bool _isGrading = false;
   bool _isMenuOpen = false;
-  // --- New state for export process ---
   bool _isExporting = false;
+
+  // --- FIX: Step 1 -> Create a state variable to hold the Future ---
+  late Future<List<_StudentScoreData>> _studentScoresFuture;
+
+  // --- FIX: Step 2 -> Initialize the Future in initState ---
+  @override
+  void initState() {
+    super.initState();
+    // This starts the data fetching process only ONCE when the screen first loads.
+    _studentScoresFuture = _calculateAllStudentScores();
+  }
 
   @override
   void dispose() {
@@ -132,7 +142,10 @@ class _StudentsTabState extends State<StudentsTab> {
       }
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading and calculations complete!')));
-      setState(() {});
+      // --- FIX: Manually refresh the data after grading ---
+      setState(() {
+        _studentScoresFuture = _calculateAllStudentScores();
+      });
     } catch (e) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('A critical error occurred: $e'), backgroundColor: Colors.red));
@@ -141,16 +154,20 @@ class _StudentsTabState extends State<StudentsTab> {
     }
   }
 
-  Future<List<_StudentScoreData>> _calculateDisplayScores() {
-    return _calculateAllStudentScores();
-  }
+  // This function is no longer called by the FutureBuilder
+  // Future<List<_StudentScoreData>> _calculateDisplayScores() {
+  //   return _calculateAllStudentScores();
+  // }
 
   void _onAddButtonPressed() {
     setState(() => _isMenuOpen = false);
-    showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId)).then((_) => setState(() {}));
+    showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId))
+    // --- FIX: Manually refresh the data after adding a student ---
+        .then((_) => setState(() {
+      _studentScoresFuture = _calculateAllStudentScores();
+    }));
   }
 
-  // --- New Export Function ---
   Future<void> _exportToExcel() async {
     if (_isExporting || _isGrading) return;
     setState(() { _isExporting = true; _isMenuOpen = false; });
@@ -163,8 +180,8 @@ class _StudentsTabState extends State<StudentsTab> {
       }
       final excel = Excel.createExcel();
       final String defaultSheetName = excel.sheets.keys.first;
-      final Sheet sheetObject = excel[defaultSheetName];
-      final headerRow = [ TextCellValue('Name'), TextCellValue('ID'),  TextCellValue('Mark')];
+      final Sheet sheetObject = excel[defaultSheetName]!;
+      final headerRow = [ TextCellValue('Name'), TextCellValue('ID'), TextCellValue('Mark')];
       sheetObject.appendRow(headerRow);
       for (final scoreData in studentScores) {
         final studentRow = [
@@ -190,7 +207,7 @@ class _StudentsTabState extends State<StudentsTab> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error exporting data: $e'), backgroundColor: Colors.red));
     } finally {
       setState(() => _isExporting = false);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      if(mounted) ScaffoldMessenger.of(context).hideCurrentSnackBar();
     }
   }
 
@@ -202,18 +219,12 @@ class _StudentsTabState extends State<StudentsTab> {
         content: const Text(style: TextStyle(color: Colors.red),'Are you sure you want to delete this student and all their answers? You won\'t be able to restore them!'),
         actions: [
           OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                side: BorderSide(color: Color(0xFF1A237E)),
-              ),
+              style: OutlinedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))), side: BorderSide(color: Color(0xFF1A237E))),
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel', style: TextStyle(color: Color(0xFF1A237E)))
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A237E),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10)))),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Delete',style: TextStyle(color: Colors.white)),
           ),
@@ -222,30 +233,24 @@ class _StudentsTabState extends State<StudentsTab> {
     );
 
     if (shouldDelete == true) {
-      await FirebaseFirestore.instance
-          .collection('users').doc(userId).collection('classes')
-          .doc(widget.classId).collection('exams').doc(widget.examId)
-          .collection('students').doc(studentId).delete();
-
+      await FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students').doc(studentId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted.')));
-        setState(() {});
+        // --- FIX: Manually refresh the data after deleting a student ---
+        setState(() {
+          _studentScoresFuture = _calculateAllStudentScores();
+        });
       }
     }
   }
 
   Future<void> _editStudent(Student student) async {
-    await showDialog(
-      context: context,
-      builder: (_) => AddStudentDialog(
-        userId: userId,
-        classId: widget.classId,
-        examId: widget.examId,
-        existingStudent: student,
-      ),
-    );
+    await showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId, existingStudent: student));
     if (mounted) {
-      setState(() {});
+      // --- FIX: Manually refresh the data after editing a student ---
+      setState(() {
+        _studentScoresFuture = _calculateAllStudentScores();
+      });
     }
   }
 
@@ -254,14 +259,8 @@ class _StudentsTabState extends State<StudentsTab> {
       context: context,
       position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
       items: [
-        const PopupMenuItem(
-          value: 'edit',
-          child: Text('Edit Info'),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Delete', style: TextStyle(color: Colors.red)),
-        ),
+        const PopupMenuItem(value: 'edit', child: Text('Edit Info')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: Colors.red))),
       ],
     );
 
@@ -315,7 +314,8 @@ class _StudentsTabState extends State<StudentsTab> {
                 const SizedBox(height: 20),
                 Expanded(
                   child: FutureBuilder<List<_StudentScoreData>>(
-                    future: _calculateDisplayScores(),
+                    // --- FIX: Step 3 -> Use the state variable in the FutureBuilder ---
+                    future: _studentScoresFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                       if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
@@ -375,14 +375,16 @@ class _StudentsTabState extends State<StudentsTab> {
       child: const Icon(Icons.more_horiz, color: Colors.white),
     );
     final openMenu = Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(color: const Color(0xFF1A237E), borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), spreadRadius: 2, blurRadius: 8)]),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+      decoration: BoxDecoration(
+          color: const Color(0xFF1A237E),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), spreadRadius: 2, blurRadius: 8)]),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: 'Export Data',
-            // --- Logic connected here ---
             onPressed: (_isGrading || _isExporting) ? null : _exportToExcel,
             icon: const Icon(Icons.ios_share, color: Colors.white),
           ),
