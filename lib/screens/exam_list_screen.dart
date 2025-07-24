@@ -6,7 +6,7 @@ import '../dialogs/add_exam_dialog.dart';
 import '../screens/questions_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-// ⬇️ UPDATE: Converted to a StatefulWidget
+
 class ExamListScreen extends StatefulWidget {
   final String classId;
   final String className;
@@ -162,6 +162,7 @@ class _ExamListScreenState extends State<ExamListScreen> {
                                 examTitle: exam['title'],
                                 classId: widget.classId,
                                 examId: doc.id,
+                                  section: exam['section']
                               ),
                             ),
                           );

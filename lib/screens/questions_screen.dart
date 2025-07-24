@@ -8,6 +8,7 @@ class QuestionsScreen extends StatelessWidget {
   final String examTitle;
   final String classId;
   final String examId;
+  final int section;
 
   const QuestionsScreen({
     super.key,
@@ -15,6 +16,7 @@ class QuestionsScreen extends StatelessWidget {
     required this.examTitle,
     required this.classId,
     required this.examId,
+    required this.section,
   });
 
   @override
@@ -76,7 +78,7 @@ class QuestionsScreen extends StatelessWidget {
             QuestionsTab(classId: classId, examId: examId, className: className,
               examTitle: examTitle,),
             StudentsTab(classId: classId, examId: examId, className: className,
-                examTitle: examTitle),
+                examTitle: examTitle, section: section),
           ],
         ),
       ),

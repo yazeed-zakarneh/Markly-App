@@ -153,6 +153,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             const SizedBox(height: 16),
 
             TextField(
+              readOnly: true,
               controller: _answerController,
               decoration: const InputDecoration(
                 labelText: "Key Answer",
@@ -165,7 +166,7 @@ class _QuestionDetailScreenState extends State<QuestionDetailScreen> {
             TextField(
               controller: _gradeController,
               decoration: const InputDecoration(
-                labelText: 'Max Grade for this Question',
+                labelText: 'Max Grade',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,

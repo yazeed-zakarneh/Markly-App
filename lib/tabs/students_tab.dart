@@ -16,6 +16,7 @@ class _StudentScoreData {
   final double finalScaledMark;
   final double examMaxGrade;
 
+
   _StudentScoreData({
     required this.student,
     required this.finalScaledMark,
@@ -28,12 +29,15 @@ class StudentsTab extends StatefulWidget {
   final String examId;
   final String className;
   final String examTitle;
+  final int section;
+
   const StudentsTab({
     super.key,
     required this.classId,
     required this.examId,
     required this.className,
     required this.examTitle,
+    required this.section,
   });
 
   @override
@@ -67,11 +71,18 @@ class _StudentsTabState extends State<StudentsTab> {
   }
 
   Future<List<_StudentScoreData>> _calculateAllStudentScores() async {
-    final examDoc = await FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).get();
+    final examDoc = await FirebaseFirestore
+        .instance.collection('users')
+        .doc(userId).collection('classes')
+        .doc(widget.classId).collection('exams')
+        .doc(widget.examId).get();
+
     if (!examDoc.exists) throw Exception("Exam document not found!");
     final double examMaxGradeForScaling = (examDoc.data()!['scaleMaxGrade'] as num).toDouble();
-    final questionDocs = (await examDoc.reference.collection('questions').orderBy('questionNumber').get()).docs;
-    final studentDocs = (await examDoc.reference.collection('students').orderBy('name').get()).docs;
+    final questionDocs = (
+        await examDoc.reference.collection('questions').orderBy('questionNumber').get()).docs;
+    final studentDocs = (
+        await examDoc.reference.collection('students').orderBy('name').get()).docs;
     final Map<int, double> questionNumberToMaxGradeMap = {};
     double totalExamWeight = 0.0;
     for (final doc in questionDocs) {
@@ -134,21 +145,24 @@ class _StudentsTabState extends State<StudentsTab> {
 
       final List<_StudentScoreData> finalScoresData = await _calculateAllStudentScores();
       if (finalScoresData.isNotEmpty) {
-        final List<double> finalScores = finalScoresData.map((data) => data.finalScaledMark).toList();
+        final List<double> finalScores = finalScoresData.map(
+                (data) => data.finalScaledMark).toList();
         final double maxScore = finalScores.reduce(math.max);
         final double minScore = finalScores.reduce(math.min);
         final double avgScore = finalScores.reduce((a, b) => a + b) / finalScores.length;
         await examRef.update({'min': minScore, 'max': maxScore, 'avg': avgScore});
       }
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Grading and calculations complete!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Grading and calculations complete!')));
       // --- FIX: Manually refresh the data after grading ---
       setState(() {
         _studentScoresFuture = _calculateAllStudentScores();
       });
     } catch (e) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('A critical error occurred: $e'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('A critical error occurred: $e'), backgroundColor: Colors.red));
     } finally {
       if(mounted) setState(() => _isGrading = false);
     }
@@ -169,20 +183,37 @@ class _StudentsTabState extends State<StudentsTab> {
   }
 
   Future<void> _exportToExcel() async {
+    final examDoc = await FirebaseFirestore
+        .instance.collection('users')
+        .doc(userId).collection('classes')
+        .doc(widget.classId).collection('exams')
+        .doc(widget.examId).get();
+    final examSec = (examDoc.data())?['section'];
+
+    final userDoc = await FirebaseFirestore
+        .instance.collection('users')
+        .doc(userId).get();
+    final userData = userDoc.data();
+    final userName = userData?['name'];
+    final headerName = '${widget.examTitle} - ${widget.className} Sec$examSec - $userName';
+
     if (_isExporting || _isGrading) return;
     setState(() { _isExporting = true; _isMenuOpen = false; });
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Generating Excel sheet...')));
     try {
       final studentScores = await _calculateAllStudentScores();
       if (studentScores.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No student data to export.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No student data to export.')));
         return;
       }
       final excel = Excel.createExcel();
       final String defaultSheetName = excel.sheets.keys.first;
       final Sheet sheetObject = excel[defaultSheetName]!;
-      final headerRow = [ TextCellValue('Name'), TextCellValue('ID'), TextCellValue('Mark')];
+      final headerRow = [ TextCellValue(headerName)];
       sheetObject.appendRow(headerRow);
+      final secondRow = [ TextCellValue('Name'), TextCellValue('ID'), TextCellValue('Mark')];
+      sheetObject.appendRow(secondRow);
       for (final scoreData in studentScores) {
         final studentRow = [
           TextCellValue(scoreData.student.name),
@@ -194,7 +225,7 @@ class _StudentsTabState extends State<StudentsTab> {
       final directory = await getTemporaryDirectory();
       final sanitizedExamName = widget.examTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final sanitizedClassName = widget.className.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
-      final fileName = '$sanitizedExamName - $sanitizedClassName.xlsx';
+      final fileName = '$sanitizedExamName - $sanitizedClassName Sec$examSec.xlsx';
       final path = '${directory.path}/$fileName';
       final fileBytes = excel.save();
       if (fileBytes != null) {
