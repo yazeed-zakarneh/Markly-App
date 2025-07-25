@@ -10,11 +10,19 @@ import '../models/ocr_model.dart';
 
 class _CombinedAnswerData {
   final String answerId;
+  final int questionNumber;
   final String questionText;
   final String studentAnswer;
   final double baseMark;
   final double maxGrade;
-  _CombinedAnswerData({required this.answerId, required this.questionText, required this.studentAnswer, required this.baseMark, required this.maxGrade});
+  _CombinedAnswerData({
+    required this.answerId,
+    required this.questionText,
+    required this.studentAnswer,
+    required this.baseMark,
+    required this.maxGrade,
+    required this.questionNumber,
+  });
   double get scaledMark => (baseMark * maxGrade) / 10.0;
 }
 
@@ -41,28 +49,45 @@ class _StudentPageState extends State<StudentScreen> {
   }
 
   Future<List<_CombinedAnswerData>> _loadCombinedData() async {
-    final questionsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions').orderBy('questionNumber');
+    // Queries remain the same
+    final questionsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions');
     final answersQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students').doc(widget.student.id).collection('answers');
+
     final results = await Future.wait([questionsQuery.get(), answersQuery.get()]);
     final questionDocs = results[0].docs;
     final answerDocs = results[1].docs;
-    final Map<int, DocumentSnapshot> questionMap = { for (var doc in questionDocs) (doc.data()['questionNumber'] as int) : doc };
+
+    // Create a map for quick lookup of questions by their number
+    final Map<int, DocumentSnapshot> questionMap = {
+      for (var doc in questionDocs) (doc.data()['questionNumber'] as int): doc
+    };
+
     final List<_CombinedAnswerData> combinedList = [];
     for (final answerDoc in answerDocs) {
       final answerData = answerDoc.data() as Map<String, dynamic>;
+      // Get the question number directly from the answer document
       final int? questionNum = answerData['questionNumber'];
+
       if (questionNum != null && questionMap.containsKey(questionNum)) {
         final questionData = questionMap[questionNum]!.data() as Map<String, dynamic>;
         final double maxGrade = double.tryParse(questionData['text2'] ?? '10.0') ?? 10.0;
         final double baseMark = (answerData['mark'] as num?)?.toDouble() ?? 0.0;
-        combinedList.add(_CombinedAnswerData(answerId: answerDoc.id, questionText: '${questionData['fullQuestion']}', studentAnswer: answerData['studentAnswer'] ?? '', baseMark: baseMark, maxGrade: maxGrade));
+
+        combinedList.add(_CombinedAnswerData(
+          answerId: answerDoc.id,
+          questionNumber: questionNum, // <-- PASS THE RELIABLE NUMBER HERE
+          questionText: '${questionData['fullQuestion']}',
+          studentAnswer: answerData['studentAnswer'] ?? '',
+          baseMark: baseMark,
+          maxGrade: maxGrade,
+        ));
       }
     }
-    combinedList.sort((a, b) {
-      final num aNum = int.tryParse(a.questionText.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-      final num bNum = int.tryParse(b.questionText.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-      return aNum.compareTo(bNum);
-    });
+
+    // --- THIS IS THE CORRECTED SORTING LOGIC ---
+    // Sort the list based on the reliable `questionNumber` field.
+    combinedList.sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
+
     return combinedList;
   }
 
@@ -233,7 +258,7 @@ class _StudentPageState extends State<StudentScreen> {
                   if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
                   if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
                   if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("No answers found for this student.", textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)));
-                  final answerDataList = snapshot.data!;
+                  final answerDataList = (snapshot.data!);
                   final double totalScaledScore = answerDataList.fold(0.0, (sum, item) => sum + item.scaledMark);
                   final double totalMaxGrade = answerDataList.fold(0.0, (sum, item) => sum + item.maxGrade);
                   return Column(

@@ -1,5 +1,3 @@
-// lib/dialogs/add_exam_dialog.dart
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -130,7 +128,7 @@ class _AddExamDialogState extends State<AddExamDialog> {
                   child: TextField(
                     controller: gradeController,
                     decoration: const InputDecoration(
-                      labelText: "Max Grade (for scaling)",
+                      labelText: "Max Grade",
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(10))),
                     ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED IMPORT
 import 'signup_screen.dart';
 import 'home_screen.dart';
 import '../dialogs/password_reset_dialog.dart';
@@ -24,64 +25,101 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
+  // --- vvv UPDATED FUNCTION (with email verification fix) vvv ---
   Future<void> handleLogin() async {
+    if (!mounted) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
     try {
       setState(() => isLoading = true);
 
-      final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
+      // 1. Sign in the user
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
-      if (!credential.user!.emailVerified) {
+      User? user = FirebaseAuth.instance.currentUser;
+
+      // 2. IMPORTANT: Reload user data to get latest emailVerified status
+      await user?.reload();
+      user = FirebaseAuth.instance.currentUser; // Re-get user after reload
+
+      // 3. Check for verification
+      if (user != null && !user.emailVerified) {
         await FirebaseAuth.instance.signOut();
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text("Please verify your email before logging in.")),
         );
+        if (mounted) setState(() => isLoading = false);
         return;
       }
 
-      Navigator.pushReplacement(
-        context,
+      // 4. Proceed to home screen if verified
+      navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(e.message ?? "Login failed")),
       );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
+  // --- vvv UPDATED FUNCTION vvv ---
   Future<void> handleGoogleSignIn() async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       setState(() => isLoading = true);
 
       final googleSignIn = GoogleSignIn(scopes: ['email']);
-      await googleSignIn.signOut(); // force account picker
+      await googleSignIn.signOut();
       final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        if (mounted) setState(() => isLoading = false);
+        return;
+      }
 
       final googleAuth = await googleUser.authentication;
-
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
 
-      Navigator.pushReplacement(
-        context,
+      if (user == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
+      }
+
+      // Create/Update user document in Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'name': user.displayName,
+        'email': user.email,
+        'photoUrl': user.photoURL,
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(e.message ?? "Google sign-in failed")),
       );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -97,13 +135,12 @@ class _SignInScreenState extends State<SignInScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // --- THIS IS THE UPDATED WIDGET ---
                     Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF1A237E), // Border color
-                          width: 2.0,                     // Border thickness
+                          color: const Color(0xFF1A237E),
+                          width: 2.0,
                         ),
                       ),
                       child: const CircleAvatar(
@@ -112,7 +149,6 @@ class _SignInScreenState extends State<SignInScreen> {
                         backgroundColor: Colors.transparent,
                       ),
                     ),
-                    // --- END OF UPDATE ---
                     const SizedBox(height: 40),
 
                     TextField(
@@ -223,8 +259,6 @@ class _SignInScreenState extends State<SignInScreen> {
             ),
           ),
         ),
-
-        // Overlay loading indicator
         if (isLoading)
           Container(
             color: Colors.black.withOpacity(0.4),

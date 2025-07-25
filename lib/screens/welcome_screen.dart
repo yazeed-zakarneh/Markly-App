@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED IMPORT
 import 'signin_screen.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
@@ -15,34 +16,55 @@ class WelcomePage extends StatefulWidget {
 class _WelcomePageState extends State<WelcomePage> {
   bool isLoading = false;
 
+  // --- vvv UPDATED FUNCTION vvv ---
   Future<void> handleGoogleSignIn() async {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     try {
       setState(() => isLoading = true);
 
       final googleSignIn = GoogleSignIn(scopes: ['email']);
       await googleSignIn.signOut();
       final googleUser = await googleSignIn.signIn();
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        if (mounted) setState(() => isLoading = false);
+        return;
+      }
 
       final googleAuth = await googleUser.authentication;
-
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
 
-      Navigator.pushReplacement(
-        context,
+      if (user == null) {
+        throw FirebaseAuthException(code: 'user-not-found');
+      }
+
+      // Create/Update user document in Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'name': user.displayName,
+        'email': user.email,
+        'photoUrl': user.photoURL,
+        'lastLogin': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Google sign-in failed")),
+    } on FirebaseAuthException catch (e) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(e.message ?? "Google sign-in failed")),
       );
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
   }
 
@@ -51,13 +73,12 @@ class _WelcomePageState extends State<WelcomePage> {
     return Stack(
       children: [
         Scaffold(
-          // --- START OF CHANGES ---
           body: SafeArea(
             child: Align(
-              alignment: const Alignment(0.0, -0.2), // Shifts content up
+              alignment: const Alignment(0.0, -0.2),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: SingleChildScrollView( // Prevents overflow on small screens
+                child: SingleChildScrollView(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -159,7 +180,6 @@ class _WelcomePageState extends State<WelcomePage> {
               ),
             ),
           ),
-          // --- END OF CHANGES ---
         ),
         if (isLoading)
           Container(
