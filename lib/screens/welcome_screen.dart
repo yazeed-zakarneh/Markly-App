@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'signin_screen.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
@@ -16,7 +16,7 @@ class WelcomePage extends StatefulWidget {
 class _WelcomePageState extends State<WelcomePage> {
   bool isLoading = false;
 
-  // --- vvv UPDATED FUNCTION vvv ---
+
   Future<void> handleGoogleSignIn() async {
     if (!mounted) return;
     final navigator = Navigator.of(context);
@@ -46,7 +46,7 @@ class _WelcomePageState extends State<WelcomePage> {
         throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // Create/Update user document in Firestore
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'name': user.displayName,
         'email': user.email,

@@ -1,5 +1,3 @@
-// In your about_us_screen.dart file
-
 import 'package:flutter/material.dart';
 import '../widgets/custom_drawer.dart';
 
@@ -10,7 +8,6 @@ class AboutUsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
 
-      // CHANGE THIS LINE:
       endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       backgroundColor: Colors.white,
       appBar: AppBar(

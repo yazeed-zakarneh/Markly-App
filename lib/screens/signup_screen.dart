@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'signin_screen.dart';
 import 'home_screen.dart';
 
@@ -31,7 +31,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  // --- vvv UPDATED FUNCTION vvv ---
+
   Future<void> handleSignUp() async {
     if (!mounted) return;
     if (passwordController.text != confirmPasswordController.text) {
@@ -47,7 +47,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     try {
       setState(() => isLoading = true);
 
-      // 1. Create user in Firebase Auth
+
       final credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -58,19 +58,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
         throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // 2. Update Auth user's profile with name
+
       final fullName = '${firstNameController.text.trim()} ${lastNameController.text.trim()}';
       await user.updateDisplayName(fullName);
 
-      // 3. Create the user document in Firestore
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'name': fullName,
         'email': user.email,
-        'photoUrl': user.photoURL, // Will be null for email sign up
+        'photoUrl': user.photoURL,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 4. Send verification email
+
       await user.sendEmailVerification();
 
       scaffoldMessenger.showSnackBar(
@@ -91,7 +91,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  // --- vvv UPDATED FUNCTION vvv ---
+
   Future<void> handleGoogleSignIn() async {
     if (!mounted) return;
     final navigator = Navigator.of(context);
@@ -114,7 +114,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         idToken: googleAuth.idToken,
       );
 
-      // 1. Sign in to Firebase Auth
+
       final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
       final user = userCredential.user;
 
@@ -122,13 +122,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // 2. Create/Update user document in Firestore
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'name': user.displayName,
         'email': user.email,
         'photoUrl': user.photoURL,
         'createdAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true)); // Use merge to not overwrite existing data
+      }, SetOptions(merge: true));
 
       navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),

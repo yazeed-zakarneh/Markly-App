@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // <-- ADDED IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
 import '../dialogs/password_reset_dialog.dart';
@@ -25,7 +25,6 @@ class _SignInScreenState extends State<SignInScreen> {
     super.dispose();
   }
 
-  // --- vvv UPDATED FUNCTION (with email verification fix) vvv ---
   Future<void> handleLogin() async {
     if (!mounted) return;
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -34,7 +33,7 @@ class _SignInScreenState extends State<SignInScreen> {
     try {
       setState(() => isLoading = true);
 
-      // 1. Sign in the user
+
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
@@ -42,11 +41,11 @@ class _SignInScreenState extends State<SignInScreen> {
 
       User? user = FirebaseAuth.instance.currentUser;
 
-      // 2. IMPORTANT: Reload user data to get latest emailVerified status
-      await user?.reload();
-      user = FirebaseAuth.instance.currentUser; // Re-get user after reload
 
-      // 3. Check for verification
+      await user?.reload();
+      user = FirebaseAuth.instance.currentUser;
+
+
       if (user != null && !user.emailVerified) {
         await FirebaseAuth.instance.signOut();
         scaffoldMessenger.showSnackBar(
@@ -56,7 +55,7 @@ class _SignInScreenState extends State<SignInScreen> {
         return;
       }
 
-      // 4. Proceed to home screen if verified
+
       navigator.pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
@@ -71,7 +70,7 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
-  // --- vvv UPDATED FUNCTION vvv ---
+
   Future<void> handleGoogleSignIn() async {
     if (!mounted) return;
     final navigator = Navigator.of(context);
@@ -101,7 +100,7 @@ class _SignInScreenState extends State<SignInScreen> {
         throw FirebaseAuthException(code: 'user-not-found');
       }
 
-      // Create/Update user document in Firestore
+
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'name': user.displayName,
         'email': user.email,

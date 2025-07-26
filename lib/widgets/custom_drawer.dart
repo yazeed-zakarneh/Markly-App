@@ -19,7 +19,6 @@ class CustomDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            /// Top row (Close button)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -35,7 +34,6 @@ class CustomDrawer extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /// Menu items
             _DrawerItem(
               icon: Icons.library_books_outlined,
               text: 'Courses',
@@ -72,7 +70,6 @@ class CustomDrawer extends StatelessWidget {
 
             const Spacer(),
 
-            /// Logout Button
             Padding(
               padding: const EdgeInsets.all(16),
               child: OutlinedButton(
@@ -102,7 +99,7 @@ class CustomDrawer extends StatelessWidget {
   }
 }
 
-/// Add this helper widget to fix the error
+
 class _DrawerItem extends StatelessWidget {
   final IconData icon;
   final String text;

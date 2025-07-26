@@ -30,7 +30,7 @@ class QuestionsScreen extends StatelessWidget {
           backgroundColor: Colors.white,
           elevation: 0,
           title: Image.asset(
-            'assets/images/logo_text.png', // Make sure this asset is correctly added
+            'assets/images/logo_text.png',
             height: 40,
           ),
           centerTitle: true,

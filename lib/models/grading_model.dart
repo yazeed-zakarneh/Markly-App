@@ -8,26 +8,16 @@ class GradingService {
     required String keyAnswer,
     required String studentAnswer,
   }) async {
-    final uri = Uri.parse('http://213.192.2.118:40129/grade');
+    final uri = Uri.parse('http://213.192.2.118:40151/grade');
 
     try {
-      // Prepare the data for the request
+
       final headers = {'Content-Type': 'application/json'};
       final body = jsonEncode({
         'question': question,
         'key_answer': keyAnswer,
         'student_answer': studentAnswer,
       });
-
-      // --- ADD THIS BLOCK FOR DEBUGGING ---
-      // This will print the exact request details to your console.
-      print("-----------------------------------------");
-      print("🚀 Sending Grading API Request...");
-      print("URL: $uri");
-      print("Headers: $headers");
-      print("Body: $body");
-      print("-----------------------------------------");
-      // --- END OF DEBUGGING BLOCK ---
 
       final response = await http
           .post(
@@ -39,7 +29,6 @@ class GradingService {
 
       if (response.statusCode == 200) {
         final responseBody = jsonDecode(response.body);
-        print("✅ Grading API Success Response Body: $responseBody");
 
         final dynamic scoreValue = responseBody['score'];
         if (scoreValue == null) {
@@ -60,7 +49,6 @@ class GradingService {
     } on TimeoutException {
       throw Exception("Grading request timed out. Please check your network connection and try again.");
     } catch (e) {
-      print("Grading Service Error: $e");
       rethrow;
     }
   }

@@ -1,5 +1,3 @@
-// lib/dialogs/add_student_dialog.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../models/student_model.dart';
@@ -8,14 +6,14 @@ class AddStudentDialog extends StatefulWidget {
   final String userId;
   final String classId;
   final String examId;
-  final Student? existingStudent; // This is the new optional parameter
+  final Student? existingStudent;
 
   const AddStudentDialog({
     super.key,
     required this.userId,
     required this.classId,
     required this.examId,
-    this.existingStudent, // Make it optional
+    this.existingStudent,
   });
 
   @override
@@ -28,13 +26,13 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
   final _studentIdController = TextEditingController();
   bool _isSaving = false;
 
-  // Helper to check if we are editing
+
   bool get _isEditing => widget.existingStudent != null;
 
   @override
   void initState() {
     super.initState();
-    // If we are editing, pre-fill the text fields with the student's data
+
     if (_isEditing) {
       _nameController.text = widget.existingStudent!.name;
       _studentIdController.text = widget.existingStudent!.studentId;
@@ -68,10 +66,8 @@ class _AddStudentDialogState extends State<AddStudentDialog> {
       };
 
       if (_isEditing) {
-        // If editing, UPDATE the existing document
         await collectionRef.doc(widget.existingStudent!.id).update(studentData);
       } else {
-        // If adding, ADD a new document
         await collectionRef.add(studentData);
       }
 

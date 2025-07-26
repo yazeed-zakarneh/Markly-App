@@ -14,26 +14,24 @@ class OcrService {
   static const String _ocrApiUrl = 'https://omarabualrob-ocr-api.hf.space/ocr';
   static const String _enhancementApiUrl = 'https://omarabualrob-enhancing-and-dividing-questions.hf.space/enhance-and-format';
 
-  // This is the local function for cleaning raw multiple-choice text.
+
   String processRawMultipleChoiceText(String rawText) {
-    print("--- Running Local MCQ Processing ---");
     final validAnswers = {'a', 'b', 'c', 'd'};
     final List<String> cleanedPairs = [];
 
-    // Find all numbers in the text and their locations
+
     final numberMatches = RegExp(r'\d+').allMatches(rawText).toList();
 
     if (numberMatches.isEmpty) {
-      return ""; // No numbers found, nothing to process
+      return "";
     }
 
-    // Loop through each found number to find its corresponding answer
+
     for (int i = 0; i < numberMatches.length; i++) {
       final currentMatch = numberMatches[i];
       final String questionNumber = currentMatch.group(0)!;
 
-      // Define the search space for the answer: from the end of the current number
-      // to the start of the next number, or to the end of the string.
+
       final int searchStartIndex = currentMatch.end;
       final int searchEndIndex = (i + 1 < numberMatches.length)
           ? numberMatches[i + 1].start
@@ -41,16 +39,13 @@ class OcrService {
 
       final String searchArea = rawText.substring(searchStartIndex, searchEndIndex);
 
-      // Find the first letter in the search area
       final letterMatch = RegExp(r'[a-zA-Z]').firstMatch(searchArea);
 
       String finalAnswer;
       if (letterMatch != null) {
         String foundLetter = letterMatch.group(0)!.toLowerCase();
-        // If the found letter is valid, use it. Otherwise, default to 'a'.
         finalAnswer = validAnswers.contains(foundLetter) ? foundLetter : 'a';
       } else {
-        // If no letter is found in the search area, default to 'a'.
         finalAnswer = 'a';
       }
       cleanedPairs.add('$questionNumber-$finalAnswer');
@@ -59,13 +54,11 @@ class OcrService {
     return cleanedPairs.join(', ');
   }
 
-  // This function is for API-based enhancement of regular (non-MCQ) questions.
   Future<String> enhanceOcrText(String rawText) async {
     final uri = Uri.parse(_enhancementApiUrl);
     final headers = {'Content-Type': 'application/json', 'accept': 'application/json'};
     final body = jsonEncode({'text': rawText});
 
-    print("🚀 Sending Enhancement API Request...");
 
     try {
       final response = await http.post(uri, headers: headers, body: body)
@@ -77,7 +70,6 @@ class OcrService {
         if (processedText == null) {
           throw Exception("Enhancement API response is missing 'processed_text'.");
         }
-        print("✅ Enhancement API Success.");
         return processedText;
       } else {
         throw Exception("Enhancement API failed with status: ${response.statusCode} - ${response.body}");
@@ -85,12 +77,11 @@ class OcrService {
     } on TimeoutException {
       throw Exception("Enhancement request timed out.");
     } catch (e) {
-      print("Enhancement Service Error: $e");
       rethrow;
     }
   }
 
-  // This function parses text that is already in the "Question: ... Answer: ..." format.
+
   List<ParsedQuestion> extractQuestionsFromText(String processedText) {
     final RegExp questionDelimiter = RegExp(r'(?=Question:)');
     final List<ParsedQuestion> parsedQuestions = [];
@@ -114,7 +105,7 @@ class OcrService {
     return parsedQuestions;
   }
 
-  // This is the initial OCR function to get raw text from an image.
+
   Future<String?> performOcr(File imageFile) async {
     final uri = Uri.parse(_ocrApiUrl);
     try {
@@ -131,7 +122,6 @@ class OcrService {
         throw Exception('Failed to load OCR data: ${response.statusCode}');
       }
     } catch (e) {
-      print("OCR Service Error: $e");
       rethrow;
     }
   }

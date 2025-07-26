@@ -22,7 +22,6 @@ class ExamListScreen extends StatefulWidget {
 }
 
 class _ExamListScreenState extends State<ExamListScreen> {
-  // ⬇️ UPDATE: Added state for the search query and controller
   String _searchQuery = '';
   final _searchController = TextEditingController();
 
@@ -79,7 +78,6 @@ class _ExamListScreenState extends State<ExamListScreen> {
                 borderRadius: BorderRadius.circular(30),
                 color: Colors.grey[200],
               ),
-              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) {
@@ -121,7 +119,6 @@ class _ExamListScreenState extends State<ExamListScreen> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // ⬇️ UPDATE: Filtering logic added here
                   final allDocs = snapshot.data!.docs;
                   final filteredDocs = allDocs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
@@ -136,7 +133,6 @@ class _ExamListScreenState extends State<ExamListScreen> {
                     return const Center(child: Text("No exams yet."));
                   }
 
-                  // Build the ListView with the filtered list
                   return ListView.builder(
                     itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {

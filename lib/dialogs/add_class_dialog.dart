@@ -37,7 +37,7 @@ class _AddClassDialogState extends State<AddClassDialog> {
     String? imageUrl;
 
     try {
-      // Upload image to Firebase Storage
+
       if (selectedImage != null) {
         final ref = FirebaseStorage.instance
             .ref('class_images/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg');
@@ -45,14 +45,14 @@ class _AddClassDialogState extends State<AddClassDialog> {
         imageUrl = await ref.getDownloadURL();
       }
 
-      // Save class info to Firestore
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('classes')
           .add({
         'name': classNameController.text.trim(),
-        'imageUrl': imageUrl ?? 'default', // You can replace 'default' with a default asset later
+        'imageUrl': imageUrl ?? 'default',
         'createdAt': Timestamp.now(),
       });
 

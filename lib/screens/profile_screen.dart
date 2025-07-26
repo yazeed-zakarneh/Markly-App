@@ -45,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showUpdateProfileDialog() {
     _dialogNameController = TextEditingController(text: _currentUser?.displayName ?? '');
-    _dialogSelectedImageFile = null; // Reset for dialog; will be set if user picks anew
+    _dialogSelectedImageFile = null;
 
     bool isLoading = false;
 
@@ -189,8 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // Add the CustomDrawer to the Scaffold
-      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)), // Assuming CustomDrawer is imported
+      endDrawer: CustomDrawer(onClose: () => Navigator.pop(context)),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,7 +6,7 @@ import '../dialogs/change_photo_dialog.dart';
 import 'exam_list_screen.dart';
 import '../widgets/custom_drawer.dart';
 
-// ⬇️ UPDATE: Converted to a StatefulWidget
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -16,13 +15,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // ⬇️ UPDATE: Added state for the search query and controller
   String _searchQuery = '';
   final _searchController = TextEditingController();
 
   @override
   void dispose() {
-    // Clean up the controller when the widget is removed
     _searchController.dispose();
     super.dispose();
   }
@@ -70,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(30),
               ),
-              // ⬇️ UPDATE: Connected the TextField to the controller and onChanged
+
               child: TextField(
                 controller: _searchController,
                 onChanged: (value) {
@@ -82,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   hintText: 'Search courses...',
                   border: InputBorder.none,
                   icon: const Icon(Icons.search),
-                  // Add a clear button to the search bar
+
                   suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                     icon: const Icon(Icons.clear),
@@ -114,7 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return const Center(child: Text('No courses yet.'));
                   }
 
-                  // ⬇️ UPDATE: Filtering logic added here
+
                   final allDocs = snapshot.data!.docs;
                   final filteredDocs = allDocs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
@@ -126,7 +123,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     return const Center(child: Text('No matching courses found.'));
                   }
 
-                  // Build the ListView with the filtered list
                   return ListView(
                     children: filteredDocs.map((doc) {
                       final data = doc.data() as Map<String, dynamic>;

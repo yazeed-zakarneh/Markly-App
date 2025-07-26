@@ -56,7 +56,7 @@ class _AddExamDialogState extends State<AddExamDialog> {
 
   Future<void> _saveExam() async {
     final name = nameController.text.trim();
-    // This is the 'Max Grade for Scaling'
+
     final scaleGrade = int.tryParse(gradeController.text) ?? 0;
     final section = int.tryParse(sectionController.text) ?? -1;
 
@@ -69,7 +69,7 @@ class _AddExamDialogState extends State<AddExamDialog> {
 
     setState(() => isSaving = true);
 
-    // ⬇️⬇️ UPDATE: Saving to the new data structure ⬇️⬇️
+
     await FirebaseFirestore.instance
         .collection('users')
         .doc(widget.userId)
@@ -79,14 +79,14 @@ class _AddExamDialogState extends State<AddExamDialog> {
         .add({
       'title': name,
       'section': section,
-      // NEW FIELD: This is for calculation only.
+
       'scaleMaxGrade': scaleGrade,
-      // OLD FIELDS: These are for display and will be calculated later.
-      'min': 0.0, // Lowest achieved score, starts at 0
-      'max': 0.0, // Highest achieved score, starts at 0
+
+      'min': 0.0,
+      'max': 0.0,
       'avg': 0.0,
     });
-    // ⬆️⬆️ END OF UPDATE ⬆️⬆️
+
 
     setState(() => isSaving = false);
     Navigator.pop(context);

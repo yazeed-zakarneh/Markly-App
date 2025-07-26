@@ -49,7 +49,7 @@ class _StudentPageState extends State<StudentScreen> {
   }
 
   Future<List<_CombinedAnswerData>> _loadCombinedData() async {
-    // Queries remain the same
+
     final questionsQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('questions');
     final answersQuery = FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students').doc(widget.student.id).collection('answers');
 
@@ -57,7 +57,6 @@ class _StudentPageState extends State<StudentScreen> {
     final questionDocs = results[0].docs;
     final answerDocs = results[1].docs;
 
-    // Create a map for quick lookup of questions by their number
     final Map<int, DocumentSnapshot> questionMap = {
       for (var doc in questionDocs) (doc.data()['questionNumber'] as int): doc
     };
@@ -65,7 +64,6 @@ class _StudentPageState extends State<StudentScreen> {
     final List<_CombinedAnswerData> combinedList = [];
     for (final answerDoc in answerDocs) {
       final answerData = answerDoc.data() as Map<String, dynamic>;
-      // Get the question number directly from the answer document
       final int? questionNum = answerData['questionNumber'];
 
       if (questionNum != null && questionMap.containsKey(questionNum)) {
@@ -75,7 +73,7 @@ class _StudentPageState extends State<StudentScreen> {
 
         combinedList.add(_CombinedAnswerData(
           answerId: answerDoc.id,
-          questionNumber: questionNum, // <-- PASS THE RELIABLE NUMBER HERE
+          questionNumber: questionNum,
           questionText: '${questionData['fullQuestion']}',
           studentAnswer: answerData['studentAnswer'] ?? '',
           baseMark: baseMark,
@@ -84,8 +82,6 @@ class _StudentPageState extends State<StudentScreen> {
       }
     }
 
-    // --- THIS IS THE CORRECTED SORTING LOGIC ---
-    // Sort the list based on the reliable `questionNumber` field.
     combinedList.sort((a, b) => a.questionNumber.compareTo(b.questionNumber));
 
     return combinedList;
@@ -121,13 +117,7 @@ class _StudentPageState extends State<StudentScreen> {
 
                 if (isMultipleChoice) {
                   setDialogState(() => statusMessage = 'Processing multiple-choice answers...');
-
-                  // --- ADDED: Print raw student text before local cleanup ---
-                  print("--- [Student Answer] Raw MCQ Text (Before Cleanup) ---\n$rawText\n------------------------------------------------------");
                   final cleanedMcqString = _ocrService.processRawMultipleChoiceText(rawText);
-
-                  // --- ADDED: Print cleaned student text after local cleanup ---
-                  print("--- [Student Answer] Cleaned MCQ Text (After Cleanup) ---\n$cleanedMcqString\n-----------------------------------------------------");
 
                   if (cleanedMcqString.isEmpty) throw Exception("No multiple-choice answers could be processed from the sheet.");
 
@@ -142,9 +132,7 @@ class _StudentPageState extends State<StudentScreen> {
 
                 } else {
                   setDialogState(() => statusMessage = 'Enhancing extracted text...');
-                  print("--- [Student Answer] Raw Text (Before API) ---\n$rawText\n--------------------------------------------");
                   final enhancedText = await _ocrService.enhanceOcrText(rawText);
-                  print("--- [Student Answer] Enhanced Text (After API) ---\n$enhancedText\n----------------------------------------------");
 
                   final List<ParsedQuestion> parsedAnswers = _ocrService.extractQuestionsFromText(enhancedText);
                   if (parsedAnswers.isEmpty) throw Exception("No answers could be parsed from the sheet.");

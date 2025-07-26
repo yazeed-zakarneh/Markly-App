@@ -53,14 +53,11 @@ class _StudentsTabState extends State<StudentsTab> {
   bool _isMenuOpen = false;
   bool _isExporting = false;
 
-  // --- FIX: Step 1 -> Create a state variable to hold the Future ---
   late Future<List<_StudentScoreData>> _studentScoresFuture;
 
-  // --- FIX: Step 2 -> Initialize the Future in initState ---
   @override
   void initState() {
     super.initState();
-    // This starts the data fetching process only ONCE when the screen first loads.
     _studentScoresFuture = _calculateAllStudentScores();
   }
 
@@ -131,14 +128,12 @@ class _StudentsTabState extends State<StudentsTab> {
           final questionDocList = questionDocs.where((doc) => doc.data()['questionNumber'] == questionNumber).toList();
           if (questionDocList.isEmpty) continue;
           final questionData = questionDocList.first.data();
-          try {
-            final double baseMark = await _gradingService.gradeAnswer(
-              question: questionData['fullQuestion'],
-              keyAnswer: questionData['text1'],
-              studentAnswer: answerData['studentAnswer'],
-            );
-            batch.update(studentAnswerDoc.reference, {'mark': baseMark});
-          } catch (e) { print("Error grading Q$questionNumber for ${studentDoc.data()['name']}: $e"); }
+          final double baseMark = await _gradingService.gradeAnswer(
+            question: questionData['fullQuestion'],
+            keyAnswer: questionData['text1'],
+            studentAnswer: answerData['studentAnswer'],
+          );
+          batch.update(studentAnswerDoc.reference, {'mark': baseMark});
         }
       }
       await batch.commit();
@@ -155,7 +150,6 @@ class _StudentsTabState extends State<StudentsTab> {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Grading and calculations complete!')));
-      // --- FIX: Manually refresh the data after grading ---
       setState(() {
         _studentScoresFuture = _calculateAllStudentScores();
       });
@@ -168,15 +162,10 @@ class _StudentsTabState extends State<StudentsTab> {
     }
   }
 
-  // This function is no longer called by the FutureBuilder
-  // Future<List<_StudentScoreData>> _calculateDisplayScores() {
-  //   return _calculateAllStudentScores();
-  // }
 
   void _onAddButtonPressed() {
     setState(() => _isMenuOpen = false);
     showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId))
-    // --- FIX: Manually refresh the data after adding a student ---
         .then((_) => setState(() {
       _studentScoresFuture = _calculateAllStudentScores();
     }));
@@ -267,7 +256,6 @@ class _StudentsTabState extends State<StudentsTab> {
       await FirebaseFirestore.instance.collection('users').doc(userId).collection('classes').doc(widget.classId).collection('exams').doc(widget.examId).collection('students').doc(studentId).delete();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student deleted.')));
-        // --- FIX: Manually refresh the data after deleting a student ---
         setState(() {
           _studentScoresFuture = _calculateAllStudentScores();
         });
@@ -278,7 +266,6 @@ class _StudentsTabState extends State<StudentsTab> {
   Future<void> _editStudent(Student student) async {
     await showDialog(context: context, builder: (_) => AddStudentDialog(userId: userId, classId: widget.classId, examId: widget.examId, existingStudent: student));
     if (mounted) {
-      // --- FIX: Manually refresh the data after editing a student ---
       setState(() {
         _studentScoresFuture = _calculateAllStudentScores();
       });
@@ -345,7 +332,6 @@ class _StudentsTabState extends State<StudentsTab> {
                 const SizedBox(height: 20),
                 Expanded(
                   child: FutureBuilder<List<_StudentScoreData>>(
-                    // --- FIX: Step 3 -> Use the state variable in the FutureBuilder ---
                     future: _studentScoresFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());

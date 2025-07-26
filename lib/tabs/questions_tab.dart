@@ -60,14 +60,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
 
                 if (isMultipleChoice) {
                   setDialogState(() => statusMessage = 'Processing multiple-choice answers...');
-
-                  // --- ADDED: Print raw text before local cleanup ---
-                  print("--- [Question Key] Raw MCQ Text (Before Cleanup) ---\n$rawText\n------------------------------------------------------");
                   final cleanedMcqString = _ocrService.processRawMultipleChoiceText(rawText);
-
-                  // --- ADDED: Print cleaned text after local cleanup ---
-                  print("--- [Question Key] Cleaned MCQ Text (After Cleanup) ---\n$cleanedMcqString\n-----------------------------------------------------");
-
                   if (cleanedMcqString.isEmpty) {
                     throw Exception("No multiple-choice answers could be processed.");
                   }
@@ -76,9 +69,7 @@ class _QuestionsTabState extends State<QuestionsTab> {
                   ];
                 } else {
                   setDialogState(() => statusMessage = 'Enhancing extracted text...');
-                  print("--- [Question Key] Raw Text (Before API) ---\n$rawText\n--------------------------------------------");
                   final enhancedText = await _ocrService.enhanceOcrText(rawText);
-                  print("--- [Question Key] Enhanced Text (After API) ---\n$enhancedText\n----------------------------------------------");
                   questionsToCreate = _ocrService.extractQuestionsFromText(enhancedText);
                 }
 
