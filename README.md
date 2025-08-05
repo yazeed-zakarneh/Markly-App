@@ -18,7 +18,7 @@ Exportable Results in a structured Excel format for easy reporting and analysis.
 
 🚀 Built to assist educators in automating the grading process while maintaining fairness, consistency, and scalability.an interactive and user-friendly experience.
 ### Authors:
-*  Omar Abo-Alrob
+*  Omar Abualrob
 *  Yazeed Zakarneh
 *  Yahia Mohammed
 _______________________________________________________________________________________________________________________
