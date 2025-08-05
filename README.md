@@ -17,7 +17,7 @@ Support for various question types, including short answers and descriptive resp
 Exportable Results in a structured Excel format for easy reporting and analysis.
 
 🚀 Built to assist educators in automating the grading process while maintaining fairness, consistency, and scalability.an interactive and user-friendly experience.
-### Author:
+### Authors:
 *  Omar Abo-Alrob
 *  Yazeed Zakarneh
 *  Yahia Mohammed
